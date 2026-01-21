@@ -1,0 +1,411 @@
+import { Lesson, Assignment, Submission, Student, DashboardStats } from './types';
+
+export const mockStudents: Student[] = [
+  { id: '1', name: 'Emma Dubois', email: 'emma@example.com', progress: { lessons_completed: 12, total_lessons: 20, average_score: 85 } },
+  { id: '2', name: 'Lucas Martin', email: 'lucas@example.com', progress: { lessons_completed: 15, total_lessons: 20, average_score: 92 } },
+  { id: '3', name: 'Sophie Bernard', email: 'sophie@example.com', progress: { lessons_completed: 8, total_lessons: 20, average_score: 78 } },
+  { id: '4', name: 'Thomas Leroy', email: 'thomas@example.com', progress: { lessons_completed: 18, total_lessons: 20, average_score: 88 } },
+  { id: '5', name: 'Léa Moreau', email: 'lea@example.com', progress: { lessons_completed: 10, total_lessons: 20, average_score: 80 } },
+  { id: '6', name: 'Hugo Petit', email: 'hugo@example.com', progress: { lessons_completed: 14, total_lessons: 20, average_score: 90 } },
+  { id: '7', name: 'Chloé Roux', email: 'chloe@example.com', progress: { lessons_completed: 11, total_lessons: 20, average_score: 82 } },
+  { id: '8', name: 'Maxime Simon', email: 'maxime@example.com', progress: { lessons_completed: 16, total_lessons: 20, average_score: 87 } },
+  { id: '9', name: 'Camille Michel', email: 'camille@example.com', progress: { lessons_completed: 9, total_lessons: 20, average_score: 75 } },
+  { id: '10', name: 'Antoine Garcia', email: 'antoine@example.com', progress: { lessons_completed: 13, total_lessons: 20, average_score: 83 } },
+  { id: '11', name: 'Julie David', email: 'julie@example.com', progress: { lessons_completed: 17, total_lessons: 20, average_score: 91 } },
+  { id: '12', name: 'Pierre Blanc', email: 'pierre@example.com', progress: { lessons_completed: 7, total_lessons: 20, average_score: 70 } },
+  { id: '13', name: 'Marie Laurent', email: 'marie@example.com', progress: { lessons_completed: 19, total_lessons: 20, average_score: 95 } },
+  { id: '14', name: 'Nicolas Girard', email: 'nicolas@example.com', progress: { lessons_completed: 6, total_lessons: 20, average_score: 68 } },
+  { id: '15', name: 'Isabelle Bonnet', email: 'isabelle@example.com', progress: { lessons_completed: 20, total_lessons: 20, average_score: 93 } },
+];
+
+export const mockLessons: Lesson[] = [
+  {
+    id: '1',
+    title: 'Introduction to French Greetings',
+    description: 'Learn basic greetings and introductions',
+    type: 'video',
+    content: {
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    },
+    created_at: '2024-01-15T10:00:00Z',
+    completion_count: 12,
+  },
+  {
+    id: '2',
+    title: 'Pronunciation: Vowels',
+    description: 'Master French vowel sounds',
+    type: 'audio',
+    content: {
+      audioUrl: '/audio/vowels.mp3',
+    },
+    created_at: '2024-01-16T10:00:00Z',
+    completion_count: 10,
+  },
+  {
+    id: '3',
+    title: 'Basic Vocabulary Quiz',
+    description: 'Test your knowledge of common words',
+    type: 'exercise',
+    content: {
+      exercise: {
+        id: 'ex1',
+        type: 'multiple-choice',
+        question: 'What does "Bonjour" mean?',
+        options: ['Goodbye', 'Hello', 'Thank you', 'Please'],
+        correctAnswer: 'Hello',
+        points: 10,
+        explanation: 'Bonjour is the standard French greeting meaning "Hello" or "Good day".',
+      },
+    },
+    created_at: '2024-01-17T10:00:00Z',
+    completion_count: 15,
+  },
+  {
+    id: '4',
+    title: 'Numbers 1-20',
+    description: 'Learn to count in French',
+    type: 'video',
+    content: {
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    },
+    created_at: '2024-01-18T10:00:00Z',
+    completion_count: 11,
+  },
+  {
+    id: '5',
+    title: 'Listening Comprehension: Restaurant',
+    description: 'Practice understanding restaurant conversations',
+    type: 'audio',
+    content: {
+      audioUrl: '/audio/restaurant.mp3',
+    },
+    created_at: '2024-01-19T10:00:00Z',
+    completion_count: 9,
+  },
+  {
+    id: '6',
+    title: 'Fill in the Blank: Articles',
+    description: 'Practice using definite and indefinite articles',
+    type: 'exercise',
+    content: {
+      exercise: {
+        id: 'ex2',
+        type: 'fill-blank',
+        question: 'Complete: Je mange ___ pomme.',
+        correctAnswer: 'une',
+        points: 15,
+        explanation: 'Une is the indefinite article for feminine singular nouns.',
+      },
+    },
+    created_at: '2024-01-20T10:00:00Z',
+    completion_count: 13,
+  },
+  {
+    id: '7',
+    title: 'Present Tense Verbs',
+    description: 'Learn regular -er verbs',
+    type: 'video',
+    content: {
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    },
+    created_at: '2024-01-21T10:00:00Z',
+    completion_count: 14,
+  },
+  {
+    id: '8',
+    title: 'Matching: Colors',
+    description: 'Match French color words with English',
+    type: 'exercise',
+    content: {
+      exercise: {
+        id: 'ex3',
+        type: 'matching',
+        question: 'Match the colors',
+        options: ['rouge', 'bleu', 'vert', 'jaune'],
+        correctAnswer: ['red', 'blue', 'green', 'yellow'],
+        points: 20,
+      },
+    },
+    created_at: '2024-01-22T10:00:00Z',
+    completion_count: 16,
+  },
+  {
+    id: '9',
+    title: 'Pronunciation: Consonants',
+    description: 'Master French consonant sounds',
+    type: 'audio',
+    content: {
+      audioUrl: '/audio/consonants.mp3',
+    },
+    created_at: '2024-01-23T10:00:00Z',
+    completion_count: 8,
+  },
+  {
+    id: '10',
+    title: 'Translation Exercise: Sentences',
+    description: 'Translate simple sentences',
+    type: 'exercise',
+    content: {
+      exercise: {
+        id: 'ex4',
+        type: 'translation',
+        question: 'Translate: "I am a student."',
+        correctAnswer: 'Je suis étudiant.',
+        points: 25,
+      },
+    },
+    created_at: '2024-01-24T10:00:00Z',
+    completion_count: 12,
+  },
+  {
+    id: '11',
+    title: 'Food Vocabulary',
+    description: 'Learn words for common foods',
+    type: 'video',
+    content: {
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    },
+    created_at: '2024-01-25T10:00:00Z',
+    completion_count: 17,
+  },
+  {
+    id: '12',
+    title: 'Daily Conversations',
+    description: 'Practice everyday French phrases',
+    type: 'audio',
+    content: {
+      audioUrl: '/audio/daily-conversations.mp3',
+    },
+    created_at: '2024-01-26T10:00:00Z',
+    completion_count: 10,
+  },
+];
+
+export const mockAssignments: Assignment[] = [
+  {
+    id: '1',
+    title: 'Week 1: Greetings and Basics',
+    description: 'Complete all lessons on greetings and basic vocabulary',
+    lesson_ids: ['1', '2', '3'],
+    due_date: '2024-02-15T23:59:59Z',
+    status: 'published',
+    max_points: 100,
+    created_at: '2024-01-28T10:00:00Z',
+    submission_count: 12,
+    completion_rate: 80,
+  },
+  {
+    id: '2',
+    title: 'Numbers and Counting',
+    description: 'Master French numbers 1-20',
+    lesson_ids: ['4'],
+    due_date: '2024-02-20T23:59:59Z',
+    status: 'published',
+    max_points: 50,
+    created_at: '2024-01-29T10:00:00Z',
+    submission_count: 10,
+    completion_rate: 67,
+  },
+  {
+    id: '3',
+    title: 'Grammar Practice: Articles',
+    description: 'Practice using articles correctly',
+    lesson_ids: ['6'],
+    due_date: '2024-02-25T23:59:59Z',
+    status: 'published',
+    max_points: 75,
+    created_at: '2024-01-30T10:00:00Z',
+    submission_count: 8,
+    completion_rate: 53,
+  },
+  {
+    id: '4',
+    title: 'Listening Comprehension',
+    description: 'Complete listening exercises',
+    lesson_ids: ['5', '12'],
+    due_date: '2024-03-01T23:59:59Z',
+    status: 'published',
+    max_points: 100,
+    created_at: '2024-02-01T10:00:00Z',
+    submission_count: 6,
+    completion_rate: 40,
+  },
+  {
+    id: '5',
+    title: 'Verb Conjugation Practice',
+    description: 'Practice present tense verb conjugations',
+    lesson_ids: ['7'],
+    due_date: '2024-03-05T23:59:59Z',
+    status: 'draft',
+    max_points: 80,
+    created_at: '2024-02-02T10:00:00Z',
+  },
+  {
+    id: '6',
+    title: 'Midterm Review',
+    description: 'Review all material covered so far',
+    lesson_ids: ['1', '2', '3', '4', '5', '6', '7'],
+    due_date: '2024-03-10T23:59:59Z',
+    status: 'published',
+    max_points: 200,
+    created_at: '2024-02-03T10:00:00Z',
+    submission_count: 5,
+    completion_rate: 33,
+  },
+];
+
+export const mockSubmissions: Submission[] = [
+  {
+    id: '1',
+    student_id: '1',
+    student: mockStudents[0],
+    assignment_id: '1',
+    assignment: mockAssignments[0],
+    answers: { '1': 'Hello', '2': 'correct', '3': 'A' },
+    score: 85,
+    max_score: 100,
+    feedback: 'Good work! Keep practicing pronunciation.',
+    status: 'graded',
+    submitted_at: '2024-02-10T14:30:00Z',
+    graded_at: '2024-02-11T09:15:00Z',
+  },
+  {
+    id: '2',
+    student_id: '2',
+    student: mockStudents[1],
+    assignment_id: '1',
+    assignment: mockAssignments[0],
+    answers: { '1': 'Hello', '2': 'correct', '3': 'A' },
+    score: 95,
+    max_score: 100,
+    feedback: 'Excellent! Perfect score!',
+    status: 'graded',
+    submitted_at: '2024-02-11T10:00:00Z',
+    graded_at: '2024-02-11T15:20:00Z',
+  },
+  {
+    id: '3',
+    student_id: '3',
+    student: mockStudents[2],
+    assignment_id: '1',
+    assignment: mockAssignments[0],
+    answers: { '1': 'Goodbye', '2': 'incorrect', '3': 'B' },
+    score: 60,
+    max_score: 100,
+    feedback: 'Review the greeting vocabulary. Practice more.',
+    status: 'graded',
+    submitted_at: '2024-02-12T16:45:00Z',
+    graded_at: '2024-02-13T08:30:00Z',
+  },
+  {
+    id: '4',
+    student_id: '4',
+    student: mockStudents[3],
+    assignment_id: '1',
+    assignment: mockAssignments[0],
+    answers: { '1': 'Hello', '2': 'correct', '3': 'A' },
+    status: 'pending',
+    max_score: 100,
+    submitted_at: '2024-02-14T11:20:00Z',
+  },
+  {
+    id: '5',
+    student_id: '5',
+    student: mockStudents[4],
+    assignment_id: '1',
+    assignment: mockAssignments[0],
+    answers: { '1': 'Hello', '2': 'correct', '3': 'A' },
+    status: 'pending',
+    max_score: 100,
+    submitted_at: '2024-02-14T13:10:00Z',
+  },
+  {
+    id: '6',
+    student_id: '1',
+    student: mockStudents[0],
+    assignment_id: '2',
+    assignment: mockAssignments[1],
+    answers: { '4': 'correct' },
+    score: 50,
+    max_score: 50,
+    feedback: 'Perfect!',
+    status: 'graded',
+    submitted_at: '2024-02-18T09:00:00Z',
+    graded_at: '2024-02-18T14:00:00Z',
+  },
+  {
+    id: '7',
+    student_id: '2',
+    student: mockStudents[1],
+    assignment_id: '2',
+    assignment: mockAssignments[1],
+    answers: { '4': 'correct' },
+    score: 50,
+    max_score: 50,
+    feedback: 'Well done!',
+    status: 'graded',
+    submitted_at: '2024-02-19T10:30:00Z',
+    graded_at: '2024-02-19T11:00:00Z',
+  },
+  {
+    id: '8',
+    student_id: '6',
+    student: mockStudents[5],
+    assignment_id: '2',
+    assignment: mockAssignments[1],
+    answers: { '4': 'incorrect' },
+    status: 'pending',
+    max_score: 50,
+    submitted_at: '2024-02-20T08:15:00Z',
+  },
+  {
+    id: '9',
+    student_id: '3',
+    student: mockStudents[2],
+    assignment_id: '3',
+    assignment: mockAssignments[2],
+    answers: { '6': 'une' },
+    status: 'pending',
+    max_score: 75,
+    submitted_at: '2024-02-22T15:00:00Z',
+  },
+  {
+    id: '10',
+    student_id: '7',
+    student: mockStudents[6],
+    assignment_id: '3',
+    assignment: mockAssignments[2],
+    answers: { '6': 'le' },
+    status: 'pending',
+    max_score: 75,
+    submitted_at: '2024-02-23T10:20:00Z',
+  },
+];
+
+export const mockDashboardStats: DashboardStats = {
+  total_students: 15,
+  active_assignments: 4,
+  pending_grades: 5,
+  lessons_uploaded: 12,
+};
+
+// Helper functions
+export function getLessonById(id: string): Lesson | undefined {
+  return mockLessons.find(lesson => lesson.id === id);
+}
+
+export function getAssignmentById(id: string): Assignment | undefined {
+  return mockAssignments.find(assignment => assignment.id === id);
+}
+
+export function getStudentById(id: string): Student | undefined {
+  return mockStudents.find(student => student.id === id);
+}
+
+export function getSubmissionsByAssignment(assignmentId: string): Submission[] {
+  return mockSubmissions.filter(sub => sub.assignment_id === assignmentId);
+}
+
+export function getPendingSubmissions(): Submission[] {
+  return mockSubmissions.filter(sub => sub.status === 'pending');
+}

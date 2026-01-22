@@ -64,9 +64,92 @@
   @apply bg-[#58cc02] hover:bg-[#4aad02] text-white font-semibold rounded-lg px-6 py-2 transition-colors;
 }
 
-/* Smooth transitions */
-* {
+/* Smooth transitions - exclude select dropdowns */
+*:not([data-radix-select-content]):not([data-radix-select-content] *) {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+}
+
+/* ============================================
+   COMPREHENSIVE ANIMATION DISABLE FOR RADIX SELECT
+   These rules MUST be outside @layer to have maximum specificity
+   ============================================ */
+
+/* Disable ALL animations and transitions for select dropdown - CRITICAL: Must override global transitions */
+[data-radix-select-content],
+[data-radix-select-content] *,
+[data-radix-select-content]::before,
+[data-radix-select-content]::after,
+[data-radix-select-viewport],
+[data-radix-select-viewport] *,
+[data-radix-select-viewport]::before,
+[data-radix-select-viewport]::after,
+[data-radix-select-item],
+[data-radix-select-item] *,
+[data-radix-select-scroll-up-button],
+[data-radix-select-scroll-down-button],
+[data-radix-portal] [data-radix-select-content],
+[data-radix-portal] [data-radix-select-content] *,
+[data-radix-popper-content-wrapper],
+[data-radix-popper-content-wrapper] *,
+.no-animation,
+.no-animation * {
+  animation: none !important;
+  transition: none !important;
+  transition-property: none !important;
+  transition-duration: 0ms !important;
+  transition-delay: 0ms !important;
+  transition-timing-function: none !important;
+  animation-name: none !important;
+  animation-duration: 0ms !important;
+  animation-delay: 0ms !important;
+  animation-timing-function: none !important;
+  animation-fill-mode: none !important;
+  animation-iteration-count: 1 !important;
+  will-change: auto !important;
+  transform-origin: center center !important;
+  scale: 1 !important;
+  opacity: 1 !important;
+}
+
+/* Override any Radix UI state-based animations */
+[data-radix-select-content][data-state="open"],
+[data-radix-select-content][data-state="closed"],
+[data-radix-select-content][data-state="open"] *,
+[data-radix-select-content][data-state="closed"] *,
+[data-radix-select-content][data-side],
+[data-radix-select-content][data-align],
+[data-radix-select-viewport][data-state="open"],
+[data-radix-select-viewport][data-state="closed"] {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+  transform-origin: center center !important;
+}
+
+/* Disable any keyframe animations that might be applied */
+@keyframes radix-select-content-show {
+  from, to { opacity: 1 !important; transform: none !important; }
+}
+@keyframes radix-select-content-hide {
+  from, to { opacity: 1 !important; transform: none !important; }
+}
+@keyframes radix-select-content-slide-up {
+  from, to { opacity: 1 !important; transform: none !important; }
+}
+@keyframes radix-select-content-slide-down {
+  from, to { opacity: 1 !important; transform: none !important; }
+}
+@keyframes radix-select-content-fade-in {
+  from, to { opacity: 1 !important; transform: none !important; }
+}
+@keyframes radix-select-content-fade-out {
+  from, to { opacity: 1 !important; transform: none !important; }
+}
+@keyframes radix-select-content-scale-in {
+  from, to { opacity: 1 !important; transform: none !important; }
+}
+@keyframes radix-select-content-scale-out {
+  from, to { opacity: 1 !important; transform: none !important; }
 }

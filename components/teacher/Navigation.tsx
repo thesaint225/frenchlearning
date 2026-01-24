@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, BookOpen, ClipboardList, CheckSquare } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ClipboardList, CheckSquare, FileText, Users } from 'lucide-react';
 
 const navItems = [
   { href: '/teacher', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/teacher/classes', label: 'Classes', icon: Users },
   { href: '/teacher/lessons', label: 'Lessons', icon: BookOpen },
   { href: '/teacher/assignments', label: 'Assignments', icon: ClipboardList },
+  { href: '/teacher/tests', label: 'Tests', icon: FileText },
   { href: '/teacher/grading', label: 'Grading', icon: CheckSquare },
 ];
 

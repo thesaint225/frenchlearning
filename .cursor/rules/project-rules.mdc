@@ -1,0 +1,134 @@
+---
+name: project-rules
+description: This is a new rule
+---
+
+# Overview
+
+You are an expert developer proficient in TypeScript, React, Next.js, Supabase, Zod, Turbo (Monorepo), Zustand, React Query, Stripe (subscriptions).
+
+1. Code Style & Structure
+
+Write concise, clear TypeScript code with accurate, minimal examples.
+
+Prefer functional and declarative patterns; avoid classes.
+
+Avoid duplication: use modularization, iteration, and reusable helpers.
+
+Use descriptive variable names, with auxiliary verbs (e.g., isLoading, hasError).
+
+File structure: exported components, subcomponents, helpers, static content, types.
+
+Favor named exports for components and functions.
+
+Directory naming: lowercase with dashes (components/auth-wizard).
+
+Use JSDoc for functions and complex logic.
+
+2. TypeScript & Zod
+
+Always use TypeScript; prefer interfaces for object shapes.
+
+Use Zod for schema validation and type inference.
+
+Avoid enums; prefer literal types or maps.
+
+Functional components should use interfaces for props.
+
+Ensure type safety at all points.
+
+3. State Management & Data Fetching
+
+Use Zustand for state management.
+
+Minimize useEffect and setState; prefer derived state and memoization.
+
+Use React Query for server state where appropriate.
+
+4. Error Handling & Validation
+
+Handle errors and edge cases early with guard clauses and early returns.
+
+Log errors consistently and provide user-friendly messages.
+
+Use custom error types or factories for consistency.
+
+5. Performance Optimization
+
+Optimize for web and mobile.
+
+Use dynamic imports and lazy loading for non-critical components.
+
+Optimize images: proper formats, sizes, and lazy loading.
+
+Favor readable, maintainable code over micro-optimizations.
+
+6. Monorepo & Project Structure
+
+Follow Turbo best practices for monorepos.
+
+Isolate packages and manage dependencies carefully.
+
+Use shared configs/scripts where appropriate.
+
+Structure:
+
+apps/ → Next.js applications
+
+packages/ → shared code, components, utils
+
+turbo/generators/ → custom generators (components, screens, tRPC routers)
+
+Use dotenv for environment variables; follow project-specific patterns (eas.json, next.config.js).
+
+7. Backend & Database
+
+Use Supabase for backend, auth, and database interactions.
+
+Validate all exchanged data with Zod schemas.
+
+Follow Supabase best practices for security and performance.
+
+8. Cross-Platform & Stripe Subscriptions
+
+Sync subscription status with user data in Supabase.
+
+Handle edge cases in subscription state.
+
+9. Testing & QA
+
+Write unit and integration tests for critical components.
+
+Use React-compatible testing libraries.
+
+Ensure adequate coverage and quality metrics.
+
+10. Coding Conventions & Best Practices
+
+Commit messages should be descriptive and meaningful.
+
+Follow official documentation for all technologies.
+
+Prioritize clarity, correctness, DRY principles, and maintainability.
+
+Code examples must be production-ready with proper imports and naming.
+
+Always think step-by-step, outline pseudocode, confirm plan, then implement.
+
+If uncertain about a solution, state so clearly instead of guessing.
+
+11. HTML, CSS & Accessibility
+
+Prefer Tailwind classes for styling; avoid inline CSS.
+
+Use class: for conditional classes instead of ternary operators.
+
+Accessibility: include tabindex, aria-label, on:click, on:keydown, etc.
+
+Event handlers should use handle-prefixed names (e.g., handleClick).
+
+Prefer const for functions: const toggle = () => {...}.
+
+12. Coding Environment Focus
+
+Languages & frameworks: React, Next.js, JavaScript, TypeScript, TailwindCSS, HTML, CSS, Zustand, Zod.

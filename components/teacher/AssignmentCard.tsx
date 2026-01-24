@@ -1,9 +1,11 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Assignment } from '@/lib/types';
-import { Calendar, Users, CheckCircle2, Clock, FileX } from 'lucide-react';
+import { Calendar, Users, CheckCircle2, Clock, FileX, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { getClassById } from '@/lib/mock-data';
 
 interface AssignmentCardProps {
   assignment: Assignment;
@@ -18,6 +20,7 @@ const statusConfig = {
 export function AssignmentCard({ assignment }: AssignmentCardProps) {
   const StatusIcon = statusConfig[assignment.status].icon;
   const statusColor = statusConfig[assignment.status].color;
+  const classData = assignment.class_id ? getClassById(assignment.class_id) : null;
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
@@ -35,7 +38,18 @@ export function AssignmentCard({ assignment }: AssignmentCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+            {classData ? (
+              <div className="flex items-center gap-1">
+                <GraduationCap className="w-4 h-4" />
+                <span>{classData.name}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <GraduationCap className="w-4 h-4" />
+                <span className="text-amber-600">Unassigned</span>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
               <span>Due: {format(new Date(assignment.due_date), 'MMM d, yyyy')}</span>
@@ -65,9 +79,11 @@ export function AssignmentCard({ assignment }: AssignmentCardProps) {
         <Button variant="outline" size="sm" className="flex-1">
           Edit
         </Button>
-        <Button variant="outline" size="sm" className="flex-1">
-          View
-        </Button>
+        <Link href={`/teacher/assignments/${assignment.id}`} className="flex-1">
+          <Button variant="outline" size="sm" className="w-full">
+            View
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );

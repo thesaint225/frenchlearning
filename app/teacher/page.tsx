@@ -2,7 +2,7 @@
 
 import { StatsCard } from '@/components/teacher/StatsCard';
 import { mockDashboardStats } from '@/lib/mock-data';
-import { Users, ClipboardList, CheckSquare, BookOpen } from 'lucide-react';
+import { Users, ClipboardList, CheckSquare, BookOpen, FileText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ export default function TeacherDashboard() {
         <p className="text-muted-foreground">Welcome back! Here's what's happening with your classes.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatsCard
           title="Total Students"
           value={stats.total_students}
@@ -29,6 +29,12 @@ export default function TeacherDashboard() {
           value={stats.active_assignments}
           icon={ClipboardList}
           description="Currently published assignments"
+        />
+        <StatsCard
+          title="Active Tests"
+          value={stats.active_tests || 0}
+          icon={FileText}
+          description="Currently active tests"
         />
         <StatsCard
           title="Pending Grades"
@@ -50,20 +56,26 @@ export default function TeacherDashboard() {
             <CardTitle>Quick Actions</CardTitle>
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Link href="/teacher/lessons/upload">
-              <Button className="w-full justify-start" variant="default">
-                <BookOpen className="mr-2 h-4 w-4" />
+          <CardContent className="space-y-4">
+            <Link href="/teacher/lessons/upload" className="block">
+              <Button className="w-full justify-start px-6 py-4 rounded-md" variant="default">
+                <BookOpen className="mr-3 h-4 w-4" />
                 Upload New Lesson
               </Button>
             </Link>
-            <Link href="/teacher/assignments/create">
-              <Button className="w-full justify-start" variant="default">
-                <ClipboardList className="mr-2 h-4 w-4" />
+            <Link href="/teacher/assignments/create" className="block">
+              <Button className="w-full justify-start px-6 py-4 rounded-md" variant="default">
+                <ClipboardList className="mr-3 h-4 w-4" />
                 Create Assignment
               </Button>
             </Link>
-            <Link href="/teacher/grading">
+            <Link href="/teacher/tests/create" className="block">
+              <Button className="w-full justify-start px-6 py-4 rounded-md" variant="default">
+                <FileText className="mr-3 h-4 w-4" />
+                Create Test
+              </Button>
+            </Link>
+            <Link href="/teacher/grading" className="block">
               <Button className="w-full justify-start" variant="outline">
                 <CheckSquare className="mr-2 h-4 w-4" />
                 Grade Submissions

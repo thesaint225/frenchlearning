@@ -1,18 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { mockLessons } from '@/lib/mock-data';
-import { AssignmentStatus } from '@/lib/types';
-import { ArrowLeft, Save, Search } from 'lucide-react';
+import { AssignmentStatus, Lesson, TestQuestion } from '@/lib/types';
+import { QuestionBuilder } from '@/components/teacher/QuestionBuilder';
+import { ArrowLeft, Save, Search, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { getLessonsByTeacher } from '@/lib/services/lessons';
+import { createAssignment } from '@/lib/services/assignments';
+import { getClassesByTeacher, getEnrollmentsByClass } from '@/lib/mock-data';
+import { Class } from '@/lib/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function CreateAssignmentPage() {
   const router = useRouter();
@@ -20,13 +30,49 @@ export default function CreateAssignmentPage() {
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
   const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [maxPoints, setMaxPoints] = useState(100);
   const [allowLate, setAllowLate] = useState(false);
   const [status, setStatus] = useState<AssignmentStatus>('draft');
   const [searchQuery, setSearchQuery] = useState('');
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingLessons, setIsLoadingLessons] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredLessons = mockLessons.filter(lesson =>
+  // TODO: Replace with actual teacher ID from auth context
+  const teacherId = '00000000-0000-0000-0000-000000000000';
+
+  // Fetch lessons from database
+  useEffect(() => {
+    const fetchLessons = async () => {
+      setIsLoadingLessons(true);
+      const { data, error: fetchError } = await getLessonsByTeacher(teacherId);
+      
+      if (fetchError || !data) {
+        setError(fetchError?.message || 'Failed to load lessons');
+        setIsLoadingLessons(false);
+        return;
+      }
+      
+      setLessons(data);
+      setIsLoadingLessons(false);
+    };
+
+    fetchLessons();
+  }, [teacherId]);
+
+  // Fetch classes for teacher
+  useEffect(() => {
+    // TODO: Replace with actual service call when classes service is implemented
+    const teacherClasses = getClassesByTeacher(teacherId);
+    setClasses(teacherClasses);
+  }, [teacherId]);
+
+  const filteredLessons = lessons.filter(lesson =>
     lesson.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -38,18 +84,109 @@ export default function CreateAssignmentPage() {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would save to the database
-    console.log('Assignment created:', {
-      title,
-      description,
-      lesson_ids: selectedLessons,
-      due_date: dueDate,
-      max_points: maxPoints,
-      status,
-    });
-    router.push('/teacher/assignments');
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      // Validate form
+      if (!title.trim()) {
+        setError('Title is required');
+        setIsLoading(false);
+        return;
+      }
+
+      // Require at least one of questions or lesson_ids
+      if (questions.length === 0 && selectedLessons.length === 0) {
+        setError('Please add at least one question or select at least one lesson');
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate questions if provided
+      if (questions.length > 0) {
+        for (let i = 0; i < questions.length; i++) {
+          const q = questions[i];
+          if (!q.question.trim()) {
+            setError(`Question ${i + 1} text is required`);
+            setIsLoading(false);
+            return;
+          }
+          if (q.points < 1) {
+            setError(`Question ${i + 1} must have at least 1 point`);
+            setIsLoading(false);
+            return;
+          }
+          if (q.type === 'multiple-choice' && (!q.options || q.options.length < 2)) {
+            setError(`Question ${i + 1} must have at least 2 options`);
+            setIsLoading(false);
+            return;
+          }
+          if (q.type === 'multiple-choice' && !q.correctAnswer) {
+            setError(`Question ${i + 1} must have a correct answer selected`);
+            setIsLoading(false);
+            return;
+          }
+          if (q.type === 'fill-blank' && !q.correctAnswer) {
+            setError(`Question ${i + 1} must have a correct answer`);
+            setIsLoading(false);
+            return;
+          }
+          if (q.type === 'matching' && (!q.options || q.options.length === 0)) {
+            setError(`Question ${i + 1} must have at least one matching pair`);
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
+      if (!dueDate) {
+        setError('Due date is required');
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate class selection when publishing
+      if (status === 'published' && !selectedClassId) {
+        setError('Please select a class before publishing the assignment');
+        setIsLoading(false);
+        return;
+      }
+
+      // Convert datetime-local to ISO string
+      const dueDateISO = new Date(dueDate).toISOString();
+
+      // Calculate max_points from questions if provided, otherwise use input value
+      const calculatedMaxPoints =
+        questions.length > 0 ? questions.reduce((sum, q) => sum + q.points, 0) : maxPoints;
+
+      // Create assignment in database
+      const { data: assignment, error: createError } = await createAssignment({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        class_id: selectedClassId || null,
+        teacher_id: teacherId,
+        lesson_ids: selectedLessons,
+        questions: questions.length > 0 ? questions : undefined,
+        due_date: dueDateISO,
+        status,
+        max_points: calculatedMaxPoints,
+        allow_late_submissions: allowLate,
+      });
+
+      if (createError || !assignment) {
+        setError(createError?.message || 'Failed to create assignment');
+        setIsLoading(false);
+        return;
+      }
+
+      alert('Assignment created successfully!');
+      router.push('/teacher/assignments');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -108,8 +245,74 @@ export default function CreateAssignmentPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Select Lessons</CardTitle>
-            <CardDescription>Choose which lessons to include in this assignment</CardDescription>
+            <CardTitle>Assignment Questions</CardTitle>
+            <CardDescription>Create questions for this assignment (fill-in-the-blank, multiple choice, matching, translation, etc.)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <QuestionBuilder questions={questions} onQuestionsChange={setQuestions} />
+            {questions.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-4">
+                Total Points: {questions.reduce((sum, q) => sum + q.points, 0)} points
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Class Assignment</CardTitle>
+            <CardDescription>
+              Select the class for this assignment. Required when publishing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="class">Class *</Label>
+              {classes.length === 0 ? (
+                <div className="p-3 border border-dashed rounded-md bg-gray-50">
+                  <p className="text-sm text-muted-foreground">
+                    No classes available. Please create a class first.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                    <SelectTrigger id="class">
+                      <SelectValue placeholder="Select a class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.map((classItem) => {
+                        const enrollments = getEnrollmentsByClass(classItem.id);
+                        return (
+                          <SelectItem key={classItem.id} value={classItem.id}>
+                            {classItem.name} ({enrollments.length} students)
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {status === 'published' && !selectedClassId && (
+                    <p className="text-xs text-amber-600">
+                      A class must be selected to publish the assignment
+                    </p>
+                  )}
+                  {selectedClassId && (
+                    <p className="text-xs text-muted-foreground">
+                      {getEnrollmentsByClass(selectedClassId).length} student(s) will see this assignment when published
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Lessons (Optional)</CardTitle>
+            <CardDescription>
+              Optionally choose lessons to include in this assignment. You can create questions above or select lessons, or both.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="relative">
@@ -122,8 +325,15 @@ export default function CreateAssignmentPage() {
               />
             </div>
             <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
-              {filteredLessons.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No lessons found</p>
+              {isLoadingLessons ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Loading lessons...</span>
+                </div>
+              ) : filteredLessons.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {searchQuery ? 'No lessons found matching your search' : 'No lessons available. Create a lesson first.'}
+                </p>
               ) : (
                 filteredLessons.map(lesson => (
                   <div key={lesson.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
@@ -168,15 +378,23 @@ export default function CreateAssignmentPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="maxPoints">Maximum Points *</Label>
+              <Label htmlFor="maxPoints">
+                Maximum Points {questions.length > 0 ? '(Auto-calculated from questions)' : '*'}
+              </Label>
               <Input
                 id="maxPoints"
                 type="number"
-                value={maxPoints}
+                value={questions.length > 0 ? questions.reduce((sum, q) => sum + q.points, 0) : maxPoints}
                 onChange={(e) => setMaxPoints(Number(e.target.value))}
                 min="1"
+                disabled={questions.length > 0}
                 required
               />
+              {questions.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Points are automatically calculated from your questions
+                </p>
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -204,13 +422,32 @@ export default function CreateAssignmentPage() {
           </CardContent>
         </Card>
 
+        {error && (
+          <Card className="border-red-500 bg-red-50">
+            <CardContent className="pt-6">
+              <p className="text-sm text-red-700">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex justify-end gap-4">
           <Link href="/teacher/assignments">
-            <Button type="button" variant="outline">Cancel</Button>
+            <Button type="button" variant="outline" disabled={isLoading}>
+              Cancel
+            </Button>
           </Link>
-          <Button type="submit" className="bg-primary hover:bg-primary-dark">
-            <Save className="mr-2 h-4 w-4" />
-            {status === 'published' ? 'Publish Assignment' : 'Save as Draft'}
+          <Button type="submit" className="bg-primary hover:bg-primary-dark" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                {status === 'published' ? 'Publish Assignment' : 'Save as Draft'}
+              </>
+            )}
           </Button>
         </div>
       </form>

@@ -9,9 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LessonType, ExerciseType } from '@/lib/types';
-import { ArrowLeft, Upload, Save } from 'lucide-react';
+import { ArrowLeft, Upload, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createLesson } from '@/lib/services/lessons';
+import { uploadVideoFile, uploadAudioFile, isValidExternalUrl } from '@/lib/services/storage';
 
 export default function UploadLessonPage() {
   const router = useRouter();
@@ -19,18 +21,157 @@ export default function UploadLessonPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [exerciseType, setExerciseType] = useState<ExerciseType>('multiple-choice');
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '', '', '']);
   const [correctAnswer, setCorrectAnswer] = useState('');
   const [points, setPoints] = useState(10);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // TODO: Replace with actual teacher ID from auth context
+  const teacherId = '00000000-0000-0000-0000-000000000000';
+
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setVideoFile(file);
+      setVideoUrl(''); // Clear URL when file is selected
+    }
+  };
+
+  const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAudioFile(file);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would save to the database
-    console.log('Lesson submitted:', { lessonType, title, description });
-    router.push('/teacher/lessons');
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      // Validate form based on lesson type
+      if (!title.trim()) {
+        setError('Title is required');
+        setIsLoading(false);
+        return;
+      }
+
+      let content: { videoUrl?: string; audioUrl?: string; exercise?: any } = {};
+
+      if (lessonType === 'video') {
+        if (videoFile) {
+          // Upload video file to Supabase Storage
+          // We'll need to create the lesson first to get an ID, then upload
+          // For now, we'll create a temporary ID
+          const tempId = crypto.randomUUID();
+          const { data: uploadedUrl, error: uploadError } = await uploadVideoFile(videoFile, tempId);
+          
+          if (uploadError || !uploadedUrl) {
+            setError(uploadError?.message || 'Failed to upload video file');
+            setIsLoading(false);
+            return;
+          }
+          content.videoUrl = uploadedUrl;
+        } else if (videoUrl.trim()) {
+          // Validate external URL
+          if (!isValidExternalUrl(videoUrl)) {
+            setError('Please enter a valid video URL (YouTube, Vimeo, or direct video file)');
+            setIsLoading(false);
+            return;
+          }
+          content.videoUrl = videoUrl;
+        } else {
+          setError('Please provide either a video file or a video URL');
+          setIsLoading(false);
+          return;
+        }
+      } else if (lessonType === 'audio') {
+        if (!audioFile) {
+          setError('Please upload an audio file');
+          setIsLoading(false);
+          return;
+        }
+        // Upload audio file to Supabase Storage
+        const tempId = crypto.randomUUID();
+        const { data: uploadedUrl, error: uploadError } = await uploadAudioFile(audioFile, tempId);
+        
+        if (uploadError || !uploadedUrl) {
+          setError(uploadError?.message || 'Failed to upload audio file');
+          setIsLoading(false);
+          return;
+        }
+        content.audioUrl = uploadedUrl;
+      } else if (lessonType === 'exercise') {
+        if (!question.trim()) {
+          setError('Question is required');
+          setIsLoading(false);
+          return;
+        }
+
+        if (exerciseType === 'multiple-choice') {
+          const validOptions = options.filter(opt => opt.trim());
+          if (validOptions.length < 2) {
+            setError('At least 2 answer options are required');
+            setIsLoading(false);
+            return;
+          }
+          if (!correctAnswer) {
+            setError('Please select the correct answer');
+            setIsLoading(false);
+            return;
+          }
+          content.exercise = {
+            type: exerciseType,
+            question,
+            options: validOptions,
+            correctAnswer: validOptions[Number(correctAnswer)],
+            points,
+          };
+        } else {
+          if (!correctAnswer.trim()) {
+            setError('Correct answer is required');
+            setIsLoading(false);
+            return;
+          }
+          content.exercise = {
+            type: exerciseType,
+            question,
+            correctAnswer,
+            points,
+          };
+        }
+      }
+
+      // Create lesson in database
+      const { data: lesson, error: createError } = await createLesson({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        type: lessonType,
+        content,
+        teacher_id: teacherId,
+      });
+
+      if (createError || !lesson) {
+        setError(createError?.message || 'Failed to create lesson');
+        setIsLoading(false);
+        return;
+      }
+
+      // If we uploaded files with a temp ID, we should re-upload with the actual lesson ID
+      // For now, the temp ID approach works but could be improved
+      
+      alert('Lesson created successfully!');
+      router.push('/teacher/lessons');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setIsLoading(false);
+    }
   };
 
   const handleOptionChange = (index: number, value: string) => {
@@ -115,26 +256,52 @@ export default function UploadLessonPage() {
                   <Input
                     id="videoUrl"
                     value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
+                    onChange={(e) => {
+                      setVideoUrl(e.target.value);
+                      setVideoFile(null); // Clear file when URL is entered
+                    }}
                     placeholder="https://www.youtube.com/watch?v=..."
+                    disabled={!!videoFile}
                   />
                 </div>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                   <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground mb-2">Or upload a video file</p>
-                  <Button type="button" variant="outline" size="sm">
-                    Choose File
-                  </Button>
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoFileChange}
+                    className="hidden"
+                    id="video-file-input"
+                    disabled={!!videoUrl}
+                  />
+                  <Label htmlFor="video-file-input">
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <span>Choose File</span>
+                    </Button>
+                  </Label>
+                  {videoFile && (
+                    <p className="mt-2 text-sm text-primary">{videoFile.name}</p>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="audio" className="space-y-4 mt-4">
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                   <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-2">Upload audio file (MP3, WAV)</p>
-                  <Button type="button" variant="outline" size="sm">
-                    Choose File
-                  </Button>
+                  <p className="text-sm text-muted-foreground mb-2">Upload audio file (MP3, WAV, OGG)</p>
+                  <Input
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleAudioFileChange}
+                    className="hidden"
+                    id="audio-file-input"
+                  />
+                  <Label htmlFor="audio-file-input">
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <span>Choose File</span>
+                    </Button>
+                  </Label>
                   {audioFile && (
                     <p className="mt-2 text-sm text-primary">{audioFile.name}</p>
                   )}
@@ -217,13 +384,32 @@ export default function UploadLessonPage() {
           </CardContent>
         </Card>
 
+        {error && (
+          <Card className="border-red-500 bg-red-50">
+            <CardContent className="pt-6">
+              <p className="text-sm text-red-700">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex justify-end gap-4">
           <Link href="/teacher/lessons">
-            <Button type="button" variant="outline">Cancel</Button>
+            <Button type="button" variant="outline" disabled={isLoading}>
+              Cancel
+            </Button>
           </Link>
-          <Button type="submit" className="bg-primary hover:bg-primary-dark">
-            <Save className="mr-2 h-4 w-4" />
-            Save Lesson
+          <Button type="submit" className="bg-primary hover:bg-primary-dark" disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save Lesson
+              </>
+            )}
           </Button>
         </div>
       </form>

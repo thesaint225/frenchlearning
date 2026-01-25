@@ -17,7 +17,9 @@ import {
   updateSubmission,
   submitSubmission,
 } from '@/lib/services/submissions';
+import { supabase } from '@/lib/supabase/client';
 import { Assignment, Lesson, TestQuestion, Submission } from '@/lib/types';
+import { autoGradeQuestion } from '@/lib/utils/grading-utils';
 import {
   ArrowLeft,
   Calendar,
@@ -28,6 +30,7 @@ import {
   Loader2,
   BookOpen,
   AlertCircle,
+  XCircle,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -45,58 +48,83 @@ export default function StudentAssignmentDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [studentId, setStudentId] = useState<string | null>(null);
 
-  // TODO: Replace with actual student ID from auth context
-  const studentId = '00000000-0000-0000-0000-000000000001';
+  // Get the current authenticated user
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          // If no user is authenticated, use a fallback test student ID
+          // In production, you should redirect to login instead
+          console.warn('No authenticated user found, using test student ID');
+          setStudentId('82e774b6-5003-47d2-9a5b-d066f04b45e5');
+        } else {
+          setStudentId(user.id);
+        }
+      } catch (err) {
+        console.error('Error getting current user:', err);
+        // Fallback to test student ID if authentication fails
+        setStudentId('82e774b6-5003-47d2-9a5b-d066f04b45e5');
+      }
+    };
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
+    if (!assignmentId || !studentId) return;
+
     const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      const [assignmentResult, submissionResult] = await Promise.all([
-        getAssignmentById(assignmentId),
-        getSubmissionByStudentAndAssignment(studentId, assignmentId),
-      ]);
+        const [assignmentResult, submissionResult] = await Promise.all([
+          getAssignmentById(assignmentId),
+          getSubmissionByStudentAndAssignment(studentId, assignmentId),
+        ]);
 
-      if (assignmentResult.error || !assignmentResult.data) {
-        setError(assignmentResult.error?.message || 'Failed to load assignment');
-        setIsLoading(false);
-        return;
-      }
-
-      setAssignment(assignmentResult.data);
-
-      if (submissionResult.data) {
-        setSubmission(submissionResult.data);
-        setAnswers(submissionResult.data.answers || {});
-      } else {
-        // Initialize empty answers for new submission
-        const initialAnswers: Record<string, any> = {};
-        if (assignmentResult.data.questions) {
-          assignmentResult.data.questions.forEach((q) => {
-            initialAnswers[q.id] = q.type === 'multiple-choice' ? '' : q.type === 'matching' ? {} : '';
-          });
+        if (assignmentResult.error || !assignmentResult.data) {
+          setError(assignmentResult.error?.message || 'Failed to load assignment');
+          setIsLoading(false);
+          return;
         }
-        setAnswers(initialAnswers);
-      }
 
-      // Fetch associated lessons
-      if (assignmentResult.data.lesson_ids && assignmentResult.data.lesson_ids.length > 0) {
-        const lessonPromises = assignmentResult.data.lesson_ids.map((lessonId) => getLessonById(lessonId));
-        const lessonResults = await Promise.all(lessonPromises);
-        const fetchedLessons = lessonResults
-          .filter((result) => result.data !== null)
-          .map((result) => result.data as Lesson);
-        setLessons(fetchedLessons);
-      }
+        setAssignment(assignmentResult.data);
 
-      setIsLoading(false);
+        if (submissionResult.data) {
+          setSubmission(submissionResult.data);
+          setAnswers(submissionResult.data.answers || {});
+        } else {
+          // Initialize empty answers for new submission
+          const initialAnswers: Record<string, any> = {};
+          if (assignmentResult.data.questions) {
+            assignmentResult.data.questions.forEach((q) => {
+              initialAnswers[q.id] = q.type === 'multiple-choice' ? '' : q.type === 'matching' ? {} : '';
+            });
+          }
+          setAnswers(initialAnswers);
+        }
+
+        // Fetch associated lessons
+        if (assignmentResult.data.lesson_ids && assignmentResult.data.lesson_ids.length > 0) {
+          const lessonPromises = assignmentResult.data.lesson_ids.map((lessonId) => getLessonById(lessonId));
+          const lessonResults = await Promise.all(lessonPromises);
+          const fetchedLessons = lessonResults
+            .filter((result) => result.data !== null)
+            .map((result) => result.data as Lesson);
+          setLessons(fetchedLessons);
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    if (assignmentId) {
-      fetchData();
-    }
+    fetchData();
   }, [assignmentId, studentId]);
 
   const handleSaveDraft = async () => {
@@ -362,6 +390,9 @@ export default function StudentAssignmentDetailPage() {
                 value={answers[question.id]}
                 onChange={(value) => updateAnswer(question.id, value)}
                 disabled={isSubmitted || isClosed}
+                showCorrections={isGraded}
+                submission={submission}
+                assignment={assignment}
               />
             ))}
           </CardContent>
@@ -443,11 +474,25 @@ interface QuestionInputProps {
   value: any;
   onChange: (value: any) => void;
   disabled?: boolean;
+  showCorrections?: boolean;
+  submission?: Submission | null;
+  assignment?: Assignment | null;
 }
 
-function QuestionInput({ question, number, value, onChange, disabled }: QuestionInputProps) {
+function QuestionInput({ question, number, value, onChange, disabled, showCorrections, submission, assignment }: QuestionInputProps) {
+  const shouldShowCorrections = showCorrections && assignment && submission?.status === 'graded';
+  const gradeResult = shouldShowCorrections && question.correctAnswer
+    ? autoGradeQuestion(question, value)
+    : null;
+  const isCorrect = gradeResult?.correct ?? false;
+  const pointsEarned = gradeResult?.points ?? 0;
+  const requiresManual = !question.correctAnswer || ['translation', 'short-answer', 'essay'].includes(question.type);
+
   return (
-    <div className="border rounded-lg p-4 space-y-3">
+    <div className={cn(
+      'border rounded-lg p-4 space-y-3',
+      shouldShowCorrections && !requiresManual && (isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200')
+    )}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
@@ -456,6 +501,28 @@ function QuestionInput({ question, number, value, onChange, disabled }: Question
               {question.type.replace('-', ' ')}
             </span>
             <span className="text-xs text-muted-foreground">{question.points} points</span>
+            {shouldShowCorrections && (
+              <div className="flex items-center gap-1 ml-auto">
+                {!requiresManual && (
+                  <>
+                    {isCorrect ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span className="text-xs font-medium text-green-700">Correct</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-4 h-4 text-red-600" />
+                        <span className="text-xs font-medium text-red-700">Incorrect</span>
+                      </>
+                    )}
+                  </>
+                )}
+                {requiresManual && (
+                  <span className="text-xs text-muted-foreground">Manual grading</span>
+                )}
+              </div>
+            )}
           </div>
           <p className="text-sm mb-3">{question.question}</p>
         </div>
@@ -463,64 +530,129 @@ function QuestionInput({ question, number, value, onChange, disabled }: Question
 
       {question.type === 'multiple-choice' && question.options && (
         <div className="space-y-2">
-          {question.options.map((option, idx) => (
-            <div key={idx} className="flex items-center space-x-2">
-              <Checkbox
-                id={`${question.id}-${idx}`}
-                checked={value === option}
-                onCheckedChange={(checked) => {
-                  if (checked) onChange(option);
-                }}
-                disabled={disabled}
-              />
-              <Label
-                htmlFor={`${question.id}-${idx}`}
-                className="text-sm cursor-pointer flex-1"
+          {question.options.map((option, idx) => {
+            const isSelected = value === option;
+            const isCorrectAnswer = Array.isArray(question.correctAnswer)
+              ? question.correctAnswer.includes(option)
+              : question.correctAnswer === option;
+            
+            return (
+              <div
+                key={idx}
+                className={cn(
+                  'flex items-center space-x-2 p-2 rounded',
+                  shouldShowCorrections && isCorrectAnswer && 'bg-green-100',
+                  shouldShowCorrections && isSelected && !isCorrectAnswer && 'bg-red-100'
+                )}
               >
-                {String.fromCharCode(65 + idx)}. {option}
-              </Label>
-            </div>
-          ))}
+                <Checkbox
+                  id={`${question.id}-${idx}`}
+                  checked={isSelected}
+                  onCheckedChange={(checked) => {
+                    if (checked) onChange(option);
+                  }}
+                  disabled={disabled}
+                />
+                <Label
+                  htmlFor={`${question.id}-${idx}`}
+                  className="text-sm cursor-pointer flex-1"
+                >
+                  {String.fromCharCode(65 + idx)}. {option}
+                  {shouldShowCorrections && isCorrectAnswer && (
+                    <span className="ml-2 text-xs font-medium text-green-700">(Correct Answer)</span>
+                  )}
+                </Label>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {question.type === 'fill-blank' && (
-        <Input
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Enter your answer"
-          disabled={disabled}
-        />
+        <div className="space-y-2">
+          <Input
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Enter your answer"
+            disabled={disabled}
+          />
+          {shouldShowCorrections && question.correctAnswer && (
+            <div className="p-2 bg-green-100 border border-green-200 rounded">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Correct Answer:</p>
+              <p className="text-sm font-medium text-green-800">
+                {Array.isArray(question.correctAnswer)
+                  ? question.correctAnswer.join(', ')
+                  : question.correctAnswer}
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {question.type === 'short-answer' && (
-        <Textarea
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Enter your answer"
-          rows={3}
-          disabled={disabled}
-        />
+        <div className="space-y-2">
+          <Textarea
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Enter your answer"
+            rows={3}
+            disabled={disabled}
+          />
+          {shouldShowCorrections && question.correctAnswer && (
+            <div className="p-2 bg-green-100 border border-green-200 rounded">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Correct Answer:</p>
+              <p className="text-sm font-medium text-green-800">
+                {Array.isArray(question.correctAnswer)
+                  ? question.correctAnswer.join(', ')
+                  : question.correctAnswer}
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {question.type === 'essay' && (
-        <Textarea
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Enter your essay"
-          rows={8}
-          disabled={disabled}
-        />
+        <div className="space-y-2">
+          <Textarea
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Enter your essay"
+            rows={8}
+            disabled={disabled}
+          />
+          {shouldShowCorrections && !question.correctAnswer && (
+            <div className="p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-xs text-yellow-800">This question was manually graded by your teacher.</p>
+            </div>
+          )}
+        </div>
       )}
 
       {question.type === 'translation' && (
-        <Textarea
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Enter your translation"
-          rows={4}
-          disabled={disabled}
-        />
+        <div className="space-y-2">
+          <Textarea
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Enter your translation"
+            rows={4}
+            disabled={disabled}
+          />
+          {shouldShowCorrections && question.correctAnswer && (
+            <div className="p-2 bg-green-100 border border-green-200 rounded">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Correct Translation:</p>
+              <p className="text-sm font-medium text-green-800">
+                {Array.isArray(question.correctAnswer)
+                  ? question.correctAnswer.join(', ')
+                  : question.correctAnswer}
+              </p>
+            </div>
+          )}
+          {shouldShowCorrections && !question.correctAnswer && (
+            <div className="p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-xs text-yellow-800">This question was manually graded by your teacher.</p>
+            </div>
+          )}
+        </div>
       )}
 
       {question.type === 'matching' && question.options && (
@@ -528,18 +660,60 @@ function QuestionInput({ question, number, value, onChange, disabled }: Question
           <p className="text-xs text-muted-foreground mb-2">
             Match each item on the left with the correct option on the right
           </p>
-          {question.options.map((option, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <span className="text-sm font-medium w-32">{option}</span>
-              <Input
-                value={value?.[option] || ''}
-                onChange={(e) => onChange({ ...value, [option]: e.target.value })}
-                placeholder="Enter match"
-                className="flex-1"
-                disabled={disabled}
-              />
+          {question.options.map((option, idx) => {
+            const studentMatch = value?.[option] || '';
+            const correctMatch = Array.isArray(question.correctAnswer) && question.correctAnswer[idx]
+              ? question.correctAnswer[idx]
+              : '';
+            const isMatchCorrect = shouldShowCorrections && correctMatch
+              ? String(studentMatch).trim().toLowerCase() === String(correctMatch).trim().toLowerCase()
+              : false;
+
+            return (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="text-sm font-medium w-32">{option}</span>
+                <Input
+                  value={studentMatch}
+                  onChange={(e) => onChange({ ...value, [option]: e.target.value })}
+                  placeholder="Enter match"
+                  className="flex-1"
+                  disabled={disabled}
+                />
+                {shouldShowCorrections && correctMatch && (
+                  <span className={cn(
+                    'text-xs font-medium w-32',
+                    isMatchCorrect ? 'text-green-700' : 'text-red-700'
+                  )}>
+                    → {correctMatch}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          {shouldShowCorrections && Array.isArray(question.correctAnswer) && (
+            <div className="mt-3 p-2 bg-green-100 border border-green-200 rounded">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Correct Matches:</p>
+              <div className="space-y-1">
+                {question.options.map((option, idx) => (
+                  <div key={idx} className="text-sm font-medium text-green-800">
+                    {option} → {question.correctAnswer[idx]}
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
+        </div>
+      )}
+
+      {/* Points Display */}
+      {shouldShowCorrections && (
+        <div className="flex items-center justify-between pt-2 border-t">
+          <span className="text-xs text-muted-foreground">
+            Points: {pointsEarned} / {question.points}
+          </span>
+          {question.explanation && (
+            <div className="text-xs text-blue-600">{question.explanation}</div>
+          )}
         </div>
       )}
     </div>

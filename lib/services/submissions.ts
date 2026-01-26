@@ -172,6 +172,50 @@ export const submitSubmission = async (
 };
 
 /**
+ * Grades a submission by updating score, feedback, and status.
+ *
+ * @param submissionId - The ID of the submission
+ * @param score - The score to assign
+ * @param feedback - Optional feedback for the student
+ * @returns Object with updated submission data or error
+ */
+export const gradeSubmission = async (
+  submissionId: string,
+  score: number,
+  feedback?: string
+): Promise<{ data: Submission | null; error: Error | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('submissions')
+      .update({
+        score,
+        feedback: feedback || null,
+        status: 'graded',
+        graded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', submissionId)
+      .select()
+      .single();
+
+    if (error) {
+      return { data: null, error: new Error(`Failed to grade submission: ${error.message}`) };
+    }
+
+    // Update assignment submission count
+    const submission = data as SubmissionRow;
+    await updateAssignmentSubmissionCount(submission.assignment_id);
+
+    return { data: transformSubmissionRow(data as SubmissionRow), error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unknown error occurred while grading submission'),
+    };
+  }
+};
+
+/**
  * Fetches all submissions for a specific assignment.
  *
  * @param assignmentId - The ID of the assignment
@@ -292,6 +336,107 @@ export const getSubmissionByStudentAndAssignment = async (
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unknown error occurred while fetching submission'),
+    };
+  }
+};
+
+/**
+ * Gets the count of pending submissions for a specific teacher.
+ * Pending submissions are those with status 'submitted' in the database
+ * (which map to 'pending' in the app layer).
+ *
+ * @param teacherId - The ID of the teacher
+ * @returns Object with count number or error
+ */
+export const getPendingSubmissionsCount = async (
+  teacherId: string
+): Promise<{ data: number | null; error: Error | null }> => {
+  try {
+    // First, get all assignments for this teacher
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('teacher_id', teacherId);
+
+    if (assignmentsError) {
+      return {
+        data: null,
+        error: new Error(`Failed to fetch assignments: ${assignmentsError.message}`),
+      };
+    }
+
+    if (!assignments || assignments.length === 0) {
+      return { data: 0, error: null };
+    }
+
+    const assignmentIds = assignments.map((a) => a.id);
+
+    // Count submissions with status 'submitted' (which are pending grading)
+    const { count, error } = await supabase
+      .from('submissions')
+      .select('*', { count: 'exact', head: true })
+      .in('assignment_id', assignmentIds)
+      .eq('status', 'submitted');
+
+    if (error) {
+      return { data: null, error: new Error(`Failed to count submissions: ${error.message}`) };
+    }
+
+    return { data: count || 0, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unknown error occurred while counting submissions'),
+    };
+  }
+};
+
+/**
+ * Fetches all submissions for assignments created by a specific teacher.
+ *
+ * @param teacherId - The ID of the teacher
+ * @returns Object with array of submissions or error
+ */
+export const getSubmissionsByTeacher = async (
+  teacherId: string
+): Promise<{ data: Submission[] | null; error: Error | null }> => {
+  try {
+    // First, get all assignments for this teacher
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('teacher_id', teacherId);
+
+    if (assignmentsError) {
+      return {
+        data: null,
+        error: new Error(`Failed to fetch assignments: ${assignmentsError.message}`),
+      };
+    }
+
+    if (!assignments || assignments.length === 0) {
+      return { data: [], error: null };
+    }
+
+    const assignmentIds = assignments.map((a) => a.id);
+
+    // Get all submissions for these assignments
+    const { data, error } = await supabase
+      .from('submissions')
+      .select('*')
+      .in('assignment_id', assignmentIds)
+      .order('submitted_at', { ascending: false, nullsFirst: false });
+
+    if (error) {
+      return { data: null, error: new Error(`Failed to fetch submissions: ${error.message}`) };
+    }
+
+    const submissions = (data as SubmissionRow[]).map(transformSubmissionRow);
+    return { data: submissions, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unknown error occurred while fetching submissions'),
     };
   }
 };

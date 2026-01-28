@@ -38,6 +38,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 
 **Note:** The `SUPABASE_SERVICE_ROLE_KEY` is optional and only needed for admin operations. Add it only if you need server-side operations that bypass Row Level Security.
 
+## Email confirmation (sign-up flow)
+
+**Current setup:** Email confirmation is **disabled**. Students and teachers are redirected straight into the app after sign-up with no verification step.
+
+To change this: Supabase Dashboard → **Authentication** → **Emails** (or **Configuration** → **Sign In / Providers** → **Email**) → turn **Confirm sign up** / **Confirm email** on or off as needed.
+
 ## Step 4: Create Database Tables
 
 Use the Supabase Table Editor to create the following tables:

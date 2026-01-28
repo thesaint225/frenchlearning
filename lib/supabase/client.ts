@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Validates that required Supabase environment variables are present.
@@ -26,7 +26,7 @@ const validateEnvVars = () => {
  * @returns Supabase client instance
  * @throws Error if required environment variables are missing
  */
-export const createSupabaseClient = () => {
+export const createSupabaseClient = (): SupabaseClient => {
   const { supabaseUrl, supabaseAnonKey } = validateEnvVars();
 
   return createClient(supabaseUrl, supabaseAnonKey, {
@@ -37,8 +37,24 @@ export const createSupabaseClient = () => {
   });
 };
 
+let _client: SupabaseClient | null = null;
+
+function getClient(): SupabaseClient {
+  if (_client) return _client;
+  if (typeof window === 'undefined') {
+    throw new Error('Supabase client is only available in the browser');
+  }
+  _client = createSupabaseClient();
+  return _client;
+}
+
 /**
- * Singleton instance of the Supabase client for client-side use.
+ * Singleton Supabase client for client-side use. Created lazily on first
+ * property access in the browser so prerender/SSR does not require env vars.
  * Use this in client components and hooks.
  */
-export const supabase = createSupabaseClient();
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    return (getClient() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});

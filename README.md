@@ -89,6 +89,7 @@ Required environment variables:
 Optional:
 
 - `SUPABASE_SERVICE_ROLE_KEY`: Service role key for admin operations (server-side only)
+- `STUDENT_SEED_EMAIL`, `STUDENT_SEED_PASSWORD`: Used only by `scripts/create-student-user.ts` for local/seed data. Set these in `.env.local` when running that script; use local/seed values only, never production credentials.
 
 See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for detailed setup instructions.
 
@@ -103,6 +104,16 @@ Stores assignments with associated lessons, due dates, and status.
 See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for complete schema details.
 
 ## Development
+
+### Scripts
+
+To create a seed student user (e.g. for testing the student dashboard), run:
+
+```bash
+npx tsx scripts/create-student-user.ts
+```
+
+Add `STUDENT_SEED_EMAIL` and `STUDENT_SEED_PASSWORD` to `.env.local` before running; see Environment Variables above. Never commit real credentials.
 
 ### Running the Development Server
 

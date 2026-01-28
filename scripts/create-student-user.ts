@@ -2,7 +2,10 @@
  * Script to create a student user in Supabase Auth if it doesn't exist
  * Run with: npx tsx scripts/create-student-user.ts
  *
- * This script requires SUPABASE_SERVICE_ROLE_KEY in .env.local for admin operations
+ * Required in .env.local:
+ *   - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+ *   - STUDENT_SEED_EMAIL, STUDENT_SEED_PASSWORD (local/seed use only; do not use real production credentials)
+ *   - SUPABASE_SERVICE_ROLE_KEY (recommended for admin operations)
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -64,8 +67,18 @@ const supabaseAdmin = serviceRoleKey
   : null;
 
 const STUDENT_ID = '00000000-0000-0000-0000-000000000001';
-const STUDENT_EMAIL = 'student@learnfrench.com';
-const STUDENT_PASSWORD = 'Student123!@#';
+const studentSeedEmail = process.env.STUDENT_SEED_EMAIL?.trim();
+const studentSeedPassword = process.env.STUDENT_SEED_PASSWORD;
+
+if (!studentSeedEmail || !studentSeedPassword) {
+  console.error(
+    'Set STUDENT_SEED_EMAIL and STUDENT_SEED_PASSWORD in .env.local for this script. Use local/seed values only, not production credentials.',
+  );
+  process.exit(1);
+}
+
+const STUDENT_EMAIL = studentSeedEmail;
+const STUDENT_PASSWORD = studentSeedPassword;
 
 async function checkUserExists(userId: string): Promise<boolean> {
   try {
@@ -347,7 +360,7 @@ async function main() {
   console.log('✓ All done! Student user is ready.');
   console.log(`\nStudent ID: ${studentId}`);
   console.log(`Email: ${STUDENT_EMAIL}`);
-  console.log(`Password: ${STUDENT_PASSWORD}`);
+  console.log('Password: [REDACTED]');
   console.log(
     '\nYou can now use this student account to test the student dashboard.',
   );

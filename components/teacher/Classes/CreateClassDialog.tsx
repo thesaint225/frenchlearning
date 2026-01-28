@@ -28,7 +28,9 @@ import { generateClassCode } from '@/lib/mock-data';
 interface CreateClassDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateClass: (classData: Omit<Class, 'id' | 'created_at' | 'updated_at'>) => void;
+  onCreateClass: (
+    classData: Omit<Class, 'id' | 'created_at' | 'updated_at'>
+  ) => void | Promise<void>;
 }
 
 export function CreateClassDialog({
@@ -42,25 +44,28 @@ export function CreateClassDialog({
   const [allowSelfEnrollment, setAllowSelfEnrollment] = useState(true);
   const [classCode, setClassCode] = useState(generateClassCode());
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onCreateClass({
-      teacher_id: 'teacher1', // In real app, get from auth context
-      name,
-      description: description || undefined,
-      class_code: classCode,
-      settings: {
-        invitation_method: invitationMethod,
-        allow_self_enrollment: allowSelfEnrollment,
-      },
-    });
-    // Reset form
-    setName('');
-    setDescription('');
-    setInvitationMethod('both');
-    setAllowSelfEnrollment(true);
-    setClassCode(generateClassCode());
-    onOpenChange(false);
+    try {
+      await onCreateClass({
+        teacher_id: 'teacher1', // Parent uses shared teacherId when calling service
+        name,
+        description: description || undefined,
+        class_code: classCode,
+        settings: {
+          invitation_method: invitationMethod,
+          allow_self_enrollment: allowSelfEnrollment,
+        },
+      });
+      setName('');
+      setDescription('');
+      setInvitationMethod('both');
+      setAllowSelfEnrollment(true);
+      setClassCode(generateClassCode());
+      onOpenChange(false);
+    } catch {
+      // Parent sets error; keep dialog open
+    }
   };
 
   const handleGenerateNewCode = () => {

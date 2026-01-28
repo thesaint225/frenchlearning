@@ -1,9 +1,12 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Navigation } from '@/components/teacher/Navigation';
 import { ClassSelector } from '@/components/teacher/Classes/ClassSelector';
-import { getClassesByTeacher } from '@/lib/mock-data';
+import { getClassesByTeacher } from '@/lib/services/classes';
+import { PLACEHOLDER_TEACHER_ID } from '@/lib/constants';
 import { usePathname } from 'next/navigation';
+import { Class } from '@/lib/types';
 
 export default function TeacherLayout({
   children,
@@ -11,7 +14,13 @@ export default function TeacherLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const classes = getClassesByTeacher('teacher1');
+  const [classes, setClasses] = useState<Class[]>([]);
+
+  useEffect(() => {
+    getClassesByTeacher(PLACEHOLDER_TEACHER_ID).then(({ data }) => {
+      setClasses(data ?? []);
+    });
+  }, []);
   
   // Extract classId from path if on a class page
   const classMatch = pathname.match(/\/teacher\/classes\/([^/]+)/);

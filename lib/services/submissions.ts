@@ -28,7 +28,12 @@ const transformSubmissionRow = (row: SubmissionRow): Submission => {
     student_id: row.student_id,
     assignment_id: row.assignment_id,
     answers: row.answers || {},
-    status: row.status === 'draft' ? 'pending' : row.status === 'submitted' ? 'pending' : 'graded',
+    status:
+      row.status === 'draft'
+        ? 'pending'
+        : row.status === 'submitted'
+          ? 'pending'
+          : 'graded',
     score: row.score || undefined,
     max_score: row.max_score,
     feedback: row.feedback || undefined,
@@ -50,7 +55,7 @@ export const createSubmission = async (
   studentId: string,
   assignmentId: string,
   answers: Record<string, any>,
-  maxScore: number
+  maxScore: number,
 ): Promise<{ data: Submission | null; error: Error | null }> => {
   try {
     // Check if submission already exists
@@ -86,14 +91,20 @@ export const createSubmission = async (
       .single();
 
     if (error) {
-      return { data: null, error: new Error(`Failed to create submission: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to create submission: ${error.message}`),
+      };
     }
 
     return { data: transformSubmissionRow(data as SubmissionRow), error: null };
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while creating submission'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while creating submission'),
     };
   }
 };
@@ -107,7 +118,7 @@ export const createSubmission = async (
  */
 export const updateSubmission = async (
   submissionId: string,
-  answers: Record<string, any>
+  answers: Record<string, any>,
 ): Promise<{ data: Submission | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -121,14 +132,20 @@ export const updateSubmission = async (
       .single();
 
     if (error) {
-      return { data: null, error: new Error(`Failed to update submission: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to update submission: ${error.message}`),
+      };
     }
 
     return { data: transformSubmissionRow(data as SubmissionRow), error: null };
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while updating submission'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while updating submission'),
     };
   }
 };
@@ -140,7 +157,7 @@ export const updateSubmission = async (
  * @returns Object with updated submission data or error
  */
 export const submitSubmission = async (
-  submissionId: string
+  submissionId: string,
 ): Promise<{ data: Submission | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -155,7 +172,10 @@ export const submitSubmission = async (
       .single();
 
     if (error) {
-      return { data: null, error: new Error(`Failed to submit: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to submit: ${error.message}`),
+      };
     }
 
     // Update assignment submission count
@@ -166,7 +186,10 @@ export const submitSubmission = async (
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while submitting'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while submitting'),
     };
   }
 };
@@ -182,7 +205,7 @@ export const submitSubmission = async (
 export const gradeSubmission = async (
   submissionId: string,
   score: number,
-  feedback?: string
+  feedback?: string,
 ): Promise<{ data: Submission | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -199,7 +222,10 @@ export const gradeSubmission = async (
       .single();
 
     if (error) {
-      return { data: null, error: new Error(`Failed to grade submission: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to grade submission: ${error.message}`),
+      };
     }
 
     // Update assignment submission count
@@ -210,7 +236,10 @@ export const gradeSubmission = async (
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while grading submission'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while grading submission'),
     };
   }
 };
@@ -222,7 +251,7 @@ export const gradeSubmission = async (
  * @returns Object with array of submissions or error
  */
 export const getSubmissionsByAssignment = async (
-  assignmentId: string
+  assignmentId: string,
 ): Promise<{ data: Submission[] | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -232,7 +261,10 @@ export const getSubmissionsByAssignment = async (
       .order('submitted_at', { ascending: false, nullsFirst: false });
 
     if (error) {
-      return { data: null, error: new Error(`Failed to fetch submissions: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch submissions: ${error.message}`),
+      };
     }
 
     const submissions = (data as SubmissionRow[]).map(transformSubmissionRow);
@@ -240,7 +272,10 @@ export const getSubmissionsByAssignment = async (
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while fetching submissions'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while fetching submissions'),
     };
   }
 };
@@ -252,7 +287,7 @@ export const getSubmissionsByAssignment = async (
  * @returns Object with array of submissions or error
  */
 export const getSubmissionsByStudent = async (
-  studentId: string
+  studentId: string,
 ): Promise<{ data: Submission[] | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -262,7 +297,10 @@ export const getSubmissionsByStudent = async (
       .order('submitted_at', { ascending: false, nullsFirst: false });
 
     if (error) {
-      return { data: null, error: new Error(`Failed to fetch submissions: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch submissions: ${error.message}`),
+      };
     }
 
     const submissions = (data as SubmissionRow[]).map(transformSubmissionRow);
@@ -270,7 +308,10 @@ export const getSubmissionsByStudent = async (
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while fetching submissions'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while fetching submissions'),
     };
   }
 };
@@ -282,7 +323,7 @@ export const getSubmissionsByStudent = async (
  * @returns Object with submission data or error
  */
 export const getSubmissionById = async (
-  submissionId: string
+  submissionId: string,
 ): Promise<{ data: Submission | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -292,14 +333,20 @@ export const getSubmissionById = async (
       .single();
 
     if (error) {
-      return { data: null, error: new Error(`Failed to fetch submission: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch submission: ${error.message}`),
+      };
     }
 
     return { data: transformSubmissionRow(data as SubmissionRow), error: null };
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while fetching submission'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while fetching submission'),
     };
   }
 };
@@ -313,7 +360,7 @@ export const getSubmissionById = async (
  */
 export const getSubmissionByStudentAndAssignment = async (
   studentId: string,
-  assignmentId: string
+  assignmentId: string,
 ): Promise<{ data: Submission | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
@@ -324,7 +371,10 @@ export const getSubmissionByStudentAndAssignment = async (
       .maybeSingle();
 
     if (error) {
-      return { data: null, error: new Error(`Failed to fetch submission: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch submission: ${error.message}`),
+      };
     }
 
     if (!data) {
@@ -335,7 +385,10 @@ export const getSubmissionByStudentAndAssignment = async (
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while fetching submission'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while fetching submission'),
     };
   }
 };
@@ -349,7 +402,7 @@ export const getSubmissionByStudentAndAssignment = async (
  * @returns Object with count number or error
  */
 export const getPendingSubmissionsCount = async (
-  teacherId: string
+  teacherId: string,
 ): Promise<{ data: number | null; error: Error | null }> => {
   try {
     // First, get all assignments for this teacher
@@ -361,7 +414,9 @@ export const getPendingSubmissionsCount = async (
     if (assignmentsError) {
       return {
         data: null,
-        error: new Error(`Failed to fetch assignments: ${assignmentsError.message}`),
+        error: new Error(
+          `Failed to fetch assignments: ${assignmentsError.message}`,
+        ),
       };
     }
 
@@ -379,14 +434,20 @@ export const getPendingSubmissionsCount = async (
       .eq('status', 'submitted');
 
     if (error) {
-      return { data: null, error: new Error(`Failed to count submissions: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to count submissions: ${error.message}`),
+      };
     }
 
     return { data: count || 0, error: null };
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while counting submissions'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while counting submissions'),
     };
   }
 };
@@ -398,7 +459,7 @@ export const getPendingSubmissionsCount = async (
  * @returns Object with array of submissions or error
  */
 export const getSubmissionsByTeacher = async (
-  teacherId: string
+  teacherId: string,
 ): Promise<{ data: Submission[] | null; error: Error | null }> => {
   try {
     // First, get all assignments for this teacher
@@ -410,7 +471,9 @@ export const getSubmissionsByTeacher = async (
     if (assignmentsError) {
       return {
         data: null,
-        error: new Error(`Failed to fetch assignments: ${assignmentsError.message}`),
+        error: new Error(
+          `Failed to fetch assignments: ${assignmentsError.message}`,
+        ),
       };
     }
 
@@ -428,7 +491,10 @@ export const getSubmissionsByTeacher = async (
       .order('submitted_at', { ascending: false, nullsFirst: false });
 
     if (error) {
-      return { data: null, error: new Error(`Failed to fetch submissions: ${error.message}`) };
+      return {
+        data: null,
+        error: new Error(`Failed to fetch submissions: ${error.message}`),
+      };
     }
 
     const submissions = (data as SubmissionRow[]).map(transformSubmissionRow);
@@ -436,7 +502,10 @@ export const getSubmissionsByTeacher = async (
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unknown error occurred while fetching submissions'),
+      error:
+        error instanceof Error
+          ? error
+          : new Error('Unknown error occurred while fetching submissions'),
     };
   }
 };
@@ -445,7 +514,9 @@ export const getSubmissionsByTeacher = async (
  * Updates assignment submission count and completion rate.
  * This is called automatically when a submission is created or graded.
  */
-const updateAssignmentSubmissionCount = async (assignmentId: string): Promise<void> => {
+const updateAssignmentSubmissionCount = async (
+  assignmentId: string,
+): Promise<void> => {
   try {
     // Get total submissions count
     const { count } = await supabase
@@ -472,7 +543,8 @@ const updateAssignmentSubmissionCount = async (assignmentId: string): Promise<vo
 
     const submissionCount = count || 0;
     const totalStudents = enrolledCount || 1;
-    const completionRate = totalStudents > 0 ? (submissionCount / totalStudents) * 100 : 0;
+    const completionRate =
+      totalStudents > 0 ? (submissionCount / totalStudents) * 100 : 0;
 
     // Update assignment
     await supabase

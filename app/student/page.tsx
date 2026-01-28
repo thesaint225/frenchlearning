@@ -1,34 +1,62 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { StatsCard } from '@/components/teacher/StatsCard';
-import { Assignment, Submission } from '@/lib/types';
-import { ClipboardList, BookOpen, TrendingUp, Calendar, Loader2 } from 'lucide-react';
+import { Assignment, Submission, Class } from '@/lib/types';
+import { ClipboardList, BookOpen, TrendingUp, Calendar, Loader2, UserPlus, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getAssignmentsByStudent } from '@/lib/services/assignments';
 import { getSubmissionsByStudent } from '@/lib/services/submissions';
+import { getClassesByStudent } from '@/lib/services/classes';
+import { supabase } from '@/lib/supabase/client';
 import { format, formatDistanceToNow } from 'date-fns';
 
 export default function StudentDashboard() {
+  const router = useRouter();
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // TODO: Replace with actual student ID from auth context
-  const studentId = '00000000-0000-0000-0000-000000000001';
-
-  // Fetch assignments and submissions
   useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+        if (authError || !user) {
+          router.replace('/auth/signin');
+          return;
+        }
+        setStudentId(user.id);
+      } catch {
+        router.replace('/auth/signin');
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    getCurrentUser();
+  }, [router]);
+
+  // Fetch assignments, submissions, and enrolled classes (only when authenticated)
+  useEffect(() => {
+    if (!studentId) return;
+
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
 
-      const [assignmentsResult, submissionsResult] = await Promise.all([
+      const [assignmentsResult, submissionsResult, classesResult] = await Promise.all([
         getAssignmentsByStudent(studentId),
         getSubmissionsByStudent(studentId),
+        getClassesByStudent(studentId),
       ]);
 
       if (assignmentsResult.error) {
@@ -42,8 +70,14 @@ export default function StudentDashboard() {
         console.warn('Failed to load submissions:', submissionsResult.error);
       }
 
+      if (classesResult.error) {
+        // Classes error is non-blocking; leave list empty
+        console.warn('Failed to load classes:', classesResult.error);
+      }
+
       setAssignments(assignmentsResult.data || []);
       setSubmissions(submissionsResult.data || []);
+      setClasses(classesResult.data || []);
       setIsLoading(false);
     };
 
@@ -148,13 +182,17 @@ export default function StudentDashboard() {
     }).slice(0, 5);
   }, [assignments, submissions]);
 
-  if (isLoading) {
+  if (!authChecked || (studentId && isLoading)) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <span className="ml-3 text-muted-foreground">Loading dashboard...</span>
       </div>
     );
+  }
+
+  if (authChecked && !studentId) {
+    return null;
   }
 
   if (error) {
@@ -174,6 +212,39 @@ export default function StudentDashboard() {
         <h2 className="text-3xl font-bold text-[#1f1f1f] mb-2">Dashboard Overview</h2>
         <p className="text-muted-foreground">Welcome back! Here's your learning progress.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Your classes
+          </CardTitle>
+          <CardDescription>
+            {classes.length > 0
+              ? 'Classes you are enrolled in'
+              : "You're not in any class yet. Join one with a code from your teacher."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {classes.length > 0 ? (
+            <ul className="space-y-2">
+              {classes.map((c) => (
+                <li key={c.id} className="flex items-baseline justify-between gap-2 py-1">
+                  <span className="font-medium text-[#1f1f1f]">{c.name}</span>
+                  <span className="text-sm text-muted-foreground font-mono">{c.class_code}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Link href="/student/classes/join">
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Join class
+              </Button>
+            </Link>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
@@ -209,6 +280,12 @@ export default function StudentDashboard() {
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Link href="/student/classes/join" className="block">
+              <Button className="w-full justify-start px-6 py-4 rounded-md" variant="default">
+                <UserPlus className="mr-3 h-4 w-4" />
+                Join class
+              </Button>
+            </Link>
             <Link href="/student/assignments" className="block">
               <Button className="w-full justify-start px-6 py-4 rounded-md" variant="default">
                 <ClipboardList className="mr-3 h-4 w-4" />

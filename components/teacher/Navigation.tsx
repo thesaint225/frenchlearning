@@ -4,7 +4,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, BookOpen, ClipboardList, CheckSquare, FileText, Users } from 'lucide-react';
+import {
+  LayoutDashboard,
+  BookOpen,
+  ClipboardList,
+  CheckSquare,
+  FileText,
+  Users,
+} from 'lucide-react';
 import { getPendingSubmissionsCount } from '@/lib/services/submissions';
 import { supabase } from '@/lib/supabase/client';
 
@@ -25,11 +32,14 @@ export function Navigation() {
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
         // Use authenticated user ID or fallback to test teacher ID (consistent with other teacher pages)
         const teacherId = user?.id || '5be95487-e1e3-4857-a260-a21b3ef0960a';
-        
+
         if (error || !user) {
           console.warn('No authenticated user found, using test user ID');
         }
@@ -49,26 +59,28 @@ export function Navigation() {
     };
 
     fetchPendingCount();
-    
+
     // Refresh count when pathname changes (user navigates)
     // This ensures badge updates after grading submissions
     const interval = setInterval(fetchPendingCount, 30000); // Refresh every 30 seconds
-    
+
     return () => clearInterval(interval);
   }, [pathname]);
 
   return (
-    <nav className="flex justify-center py-6 px-4">
-      <div className="relative inline-flex items-center gap-1 px-2 py-2 rounded-[500px] border border-[#3f3f3f] bg-gradient-to-b from-[#141414] to-[#242424] shadow-[inset_10px_0_10px_rgba(0,0,0,0.5)] overflow-x-auto overflow-y-visible">
+    <nav className='flex justify-center py-6 px-4'>
+      <div className='relative inline-flex items-center gap-1 px-2 py-2 rounded-[500px] border border-[#3f3f3f] bg-gradient-to-b from-[#141414] to-[#242424] shadow-[inset_10px_0_10px_rgba(0,0,0,0.5)] overflow-x-auto overflow-y-visible'>
         {/* Decorative bubble elements */}
-        <div className="absolute -inset-[5px] rounded-[500px] bg-gradient-to-b from-[#3f3f3f] to-[#212121] -z-10" />
-        
+        <div className='absolute -inset-[5px] rounded-[500px] bg-gradient-to-b from-[#3f3f3f] to-[#212121] -z-10' />
+
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== '/teacher' && pathname.startsWith(item.href));
+          const isActive =
+            pathname === item.href ||
+            (item.href !== '/teacher' && pathname.startsWith(item.href));
           const isGradingItem = item.href === '/teacher/grading';
           const shouldShowBadge = isGradingItem && pendingCount > 0;
-          
+
           return (
             <Link
               key={item.href}
@@ -78,19 +90,19 @@ export function Navigation() {
                 'flex items-center gap-2 whitespace-nowrap',
                 isActive
                   ? 'bg-white text-[#1f1f1f] shadow-sm'
-                  : 'text-white hover:text-white/90'
+                  : 'text-white hover:text-white/90',
               )}
             >
-              <Icon className="w-4 h-4 relative">
+              <Icon className='w-4 h-4 relative'>
                 {shouldShowBadge && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-lg z-10">
+                  <span className='absolute -top-1 -right-1 flex h-4 w-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-lg z-10'>
                     {pendingCount > 99 ? '99+' : pendingCount}
                   </span>
                 )}
               </Icon>
-              <span className="hidden sm:inline">{item.label}</span>
+              <span className='hidden sm:inline'>{item.label}</span>
               {shouldShowBadge && (
-                <span className="hidden sm:flex ml-1 h-5 w-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg">
+                <span className='hidden sm:flex ml-1 h-5 w-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-lg'>
                   {pendingCount > 99 ? '99+' : pendingCount}
                 </span>
               )}

@@ -1,17 +1,22 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { StudentAssignmentCard } from '@/components/student/AssignmentCard';
 import { Assignment, Submission } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Loader2, Search } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { getAssignmentsByStudent } from '@/lib/services/assignments';
 import { getSubmissionsByStudent } from '@/lib/services/submissions';
+import { supabase } from '@/lib/supabase/client';
 
 type FilterStatus = 'all' | 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
 
 export default function StudentAssignmentsPage() {
+  const router = useRouter();
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,11 +24,31 @@ export default function StudentAssignmentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
-  // TODO: Replace with actual student ID from auth context
-  const studentId = '00000000-0000-0000-0000-000000000001';
-
-  // Fetch assignments and submissions
   useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+        if (authError || !user) {
+          router.replace('/auth/signin');
+          return;
+        }
+        setStudentId(user.id);
+      } catch {
+        router.replace('/auth/signin');
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    getCurrentUser();
+  }, [router]);
+
+  // Fetch assignments and submissions (only when authenticated)
+  useEffect(() => {
+    if (!studentId) return;
+
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
@@ -102,6 +127,19 @@ export default function StudentAssignmentsPage() {
 
     return filtered;
   }, [assignments, searchQuery, filterStatus, submissionMap]);
+
+  if (!authChecked || (studentId && isLoading)) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-3 text-muted-foreground">Loading assignments...</span>
+      </div>
+    );
+  }
+
+  if (authChecked && !studentId) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">

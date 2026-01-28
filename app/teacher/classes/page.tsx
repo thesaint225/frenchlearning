@@ -1,27 +1,55 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ClassCard } from '@/components/teacher/Classes/ClassCard';
 import { CreateClassDialog } from '@/components/teacher/Classes/CreateClassDialog';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { Class } from '@/lib/types';
-import { getClassesByTeacher, mockClasses } from '@/lib/mock-data';
+import { getClassesByTeacher, createClass } from '@/lib/services/classes';
+import { PLACEHOLDER_TEACHER_ID } from '@/lib/constants';
 
 export default function ClassesPage() {
-  const [classes, setClasses] = useState<Class[]>(getClassesByTeacher('teacher1'));
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  const handleCreateClass = (classData: Omit<Class, 'id' | 'created_at' | 'updated_at'>) => {
-    // In a real app, this would be an API call
-    const newClass: Class = {
-      ...classData,
-      id: `class${Date.now()}`,
-      created_at: new Date().toISOString(),
-      student_count: 0,
-      active_assignments_count: 0,
+  const teacherId = PLACEHOLDER_TEACHER_ID;
+
+  useEffect(() => {
+    const fetchClasses = async () => {
+      setIsLoading(true);
+      setError(null);
+      const { data, error: fetchError } = await getClassesByTeacher(teacherId);
+      if (fetchError) {
+        setError(fetchError.message);
+        setClasses([]);
+      } else {
+        setClasses(data ?? []);
+      }
+      setIsLoading(false);
     };
-    setClasses([...classes, newClass]);
+    fetchClasses();
+  }, [teacherId]);
+
+  const handleCreateClass = async (
+    classData: Omit<Class, 'id' | 'created_at' | 'updated_at'>
+  ) => {
+    setError(null);
+    const { data: newClass, error: createError } = await createClass(teacherId, {
+      name: classData.name,
+      description: classData.description,
+      class_code: classData.class_code,
+      settings: classData.settings,
+    });
+    if (createError) {
+      setError(createError.message);
+      throw createError;
+    }
+    if (newClass) {
+      setClasses((prev) => [newClass, ...prev]);
+    }
   };
 
   return (
@@ -39,9 +67,19 @@ export default function ClassesPage() {
         </Button>
       </div>
 
-      {classes.length === 0 ? (
+      {error && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : classes.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">You don't have any classes yet.</p>
+          <p className="text-muted-foreground mb-4">You don&apos;t have any classes yet.</p>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Create Your First Class

@@ -1,20 +1,33 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { StatsCard } from '@/components/teacher/StatsCard';
 import { mockDashboardStats } from '@/lib/mock-data';
-import { Users, ClipboardList, CheckSquare, BookOpen, FileText } from 'lucide-react';
+import { Users, ClipboardList, CheckSquare, BookOpen, FileText, GraduationCap, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { getClassesByTeacher } from '@/lib/services/classes';
+import { PLACEHOLDER_TEACHER_ID } from '@/lib/constants';
+import { Class } from '@/lib/types';
 
 export default function TeacherDashboard() {
   const stats = mockDashboardStats;
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
+
+  useEffect(() => {
+    getClassesByTeacher(PLACEHOLDER_TEACHER_ID).then(({ data }) => {
+      setClasses(data ?? []);
+      setClassesLoading(false);
+    });
+  }, []);
 
   return (
     <div className="space-y-8">
       <div>
         <h2 className="text-3xl font-bold text-[#1f1f1f] mb-2">Dashboard Overview</h2>
-        <p className="text-muted-foreground">Welcome back! Here's what's happening with your classes.</p>
+        <p className="text-muted-foreground">Welcome back! Here&apos;s what&apos;s happening with your classes.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
@@ -49,6 +62,59 @@ export default function TeacherDashboard() {
           description="Total lessons in your library"
         />
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle>My Classes</CardTitle>
+            <CardDescription>Your classes and course sections</CardDescription>
+          </div>
+          <Link href="/teacher/classes">
+            <Button variant="outline" size="sm">
+              Manage classes
+            </Button>
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {classesLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : classes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">
+              You don&apos;t have any classes yet.{' '}
+              <Link href="/teacher/classes" className="text-primary underline">
+                Create your first class
+              </Link>
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {classes.slice(0, 5).map((c) => (
+                <li key={c.id} className="flex items-center gap-2 text-sm">
+                  <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Link
+                    href={`/teacher/classes/${c.id}`}
+                    className="text-primary hover:underline truncate"
+                  >
+                    {c.name}
+                  </Link>
+                  {c.class_code && (
+                    <span className="text-muted-foreground text-xs shrink-0">
+                      ({c.class_code})
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {!classesLoading && classes.length > 5 && (
+            <Link href="/teacher/classes" className="inline-block mt-2 text-sm text-primary hover:underline">
+              View all {classes.length} classes
+            </Link>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

@@ -1,0 +1,150 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase/client';
+import { enrollStudentByCode } from '@/lib/services/classes';
+import { Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+
+export default function StudentJoinClassPage() {
+  const router = useRouter();
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [classCode, setClassCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ className: string } | null>(null);
+
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+        if (authError || !user) {
+          router.replace('/auth/signin');
+          return;
+        }
+        setStudentId(user.id);
+      } catch {
+        router.replace('/auth/signin');
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    getCurrentUser();
+  }, [router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!studentId || !classCode.trim()) return;
+    setError(null);
+    setIsSubmitting(true);
+    const result = await enrollStudentByCode(studentId, classCode.trim());
+    setIsSubmitting(false);
+    if (result.success) {
+      setSuccess({ className: result.className });
+      setClassCode('');
+    } else {
+      setError(result.error);
+    }
+  };
+
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-3 text-muted-foreground">Loading...</span>
+      </div>
+    );
+  }
+
+  if (!studentId) {
+    return null;
+  }
+
+  return (
+    <div className="max-w-md mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/student">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </Link>
+        <div>
+          <h2 className="text-3xl font-bold text-[#1f1f1f]">Join a class</h2>
+          <p className="text-muted-foreground">
+            Enter the class code your teacher gave you
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Class code</CardTitle>
+          <CardDescription>
+            Ask your teacher for the class code and enter it below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {success ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-800">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <span>You&apos;ve joined {success.className}.</span>
+              </div>
+              <div className="flex gap-2">
+                <Link href="/student">
+                  <Button>Go to Dashboard</Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  onClick={() => setSuccess(null)}
+                >
+                  Join another class
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="classCode">Class code</Label>
+                <Input
+                  id="classCode"
+                  type="text"
+                  value={classCode}
+                  onChange={(e) => setClassCode(e.target.value)}
+                  placeholder="e.g. FR101-2026-XLIU"
+                  className="font-mono"
+                  autoComplete="off"
+                  disabled={isSubmitting}
+                />
+              </div>
+              {error && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+              <Button type="submit" disabled={isSubmitting || !classCode.trim()}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Joining...
+                  </>
+                ) : (
+                  'Join class'
+                )}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

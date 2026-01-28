@@ -99,6 +99,16 @@ export const createAssignment = async (
     // Validate input with Zod schema
     const validatedInput = createAssignmentSchema.parse(input);
 
+    // Cannot publish without a class
+    if (validatedInput.status === 'published' && !validatedInput.class_id) {
+      return {
+        data: null,
+        error: new Error(
+          'Cannot publish assignment without a class. Please assign the assignment to a class first.'
+        ),
+      };
+    }
+
     // Validate that all lesson IDs exist (only if lesson_ids are provided)
     if (validatedInput.lesson_ids && validatedInput.lesson_ids.length > 0) {
       const { isValid, error: validationError } = await validateLessonIds(validatedInput.lesson_ids);

@@ -14,7 +14,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getLessonsByTeacher } from '@/lib/services/lessons';
 import { createAssignment } from '@/lib/services/assignments';
-import { getClassesByTeacher, getEnrollmentsByClass } from '@/lib/mock-data';
+import { getClassesByTeacher, getEnrollmentCountByClass } from '@/lib/services/classes';
+import { PLACEHOLDER_TEACHER_ID } from '@/lib/constants';
 import { Class } from '@/lib/types';
 import {
   Select,
@@ -38,13 +39,14 @@ export default function CreateAssignmentPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
+  const [enrollmentCountByClassId, setEnrollmentCountByClassId] = useState<Record<string, number>>({});
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingLessons, setIsLoadingLessons] = useState(true);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // TODO: Replace with actual teacher ID from auth context
-  const teacherId = '00000000-0000-0000-0000-000000000000';
+  const teacherId = PLACEHOLDER_TEACHER_ID;
 
   // Fetch lessons from database
   useEffect(() => {
@@ -65,11 +67,32 @@ export default function CreateAssignmentPage() {
     fetchLessons();
   }, [teacherId]);
 
-  // Fetch classes for teacher
+  // Fetch classes and enrollment counts for teacher
   useEffect(() => {
-    // TODO: Replace with actual service call when classes service is implemented
-    const teacherClasses = getClassesByTeacher(teacherId);
-    setClasses(teacherClasses);
+    const fetchClasses = async () => {
+      setIsLoadingClasses(true);
+      const { data: classList, error: fetchError } = await getClassesByTeacher(teacherId);
+      if (fetchError) {
+        setError(fetchError.message);
+        setClasses([]);
+        setIsLoadingClasses(false);
+        return;
+      }
+      const list = classList ?? [];
+      setClasses(list);
+      if (list.length > 0) {
+        const counts: Record<string, number> = {};
+        await Promise.all(
+          list.map(async (c) => {
+            const { data: count } = await getEnrollmentCountByClass(c.id);
+            counts[c.id] = count;
+          })
+        );
+        setEnrollmentCountByClassId(counts);
+      }
+      setIsLoadingClasses(false);
+    };
+    fetchClasses();
   }, [teacherId]);
 
   const filteredLessons = lessons.filter(lesson =>
@@ -268,10 +291,17 @@ export default function CreateAssignmentPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="class">Class *</Label>
-              {classes.length === 0 ? (
+              {isLoadingClasses ? (
+                <div className="p-3 border border-dashed rounded-md bg-gray-50">
+                  <p className="text-sm text-muted-foreground">Loading classes…</p>
+                </div>
+              ) : classes.length === 0 ? (
                 <div className="p-3 border border-dashed rounded-md bg-gray-50">
                   <p className="text-sm text-muted-foreground">
-                    No classes available. Please create a class first.
+                    No classes available.{' '}
+                    <Link href="/teacher/classes" className="text-primary underline">
+                      Create a class first
+                    </Link>
                   </p>
                 </div>
               ) : (
@@ -281,14 +311,12 @@ export default function CreateAssignmentPage() {
                       <SelectValue placeholder="Select a class" />
                     </SelectTrigger>
                     <SelectContent>
-                      {classes.map((classItem) => {
-                        const enrollments = getEnrollmentsByClass(classItem.id);
-                        return (
-                          <SelectItem key={classItem.id} value={classItem.id}>
-                            {classItem.name} ({enrollments.length} students)
-                          </SelectItem>
-                        );
-                      })}
+                      {classes.map((classItem) => (
+                        <SelectItem key={classItem.id} value={classItem.id}>
+                          {classItem.name} (
+                          {enrollmentCountByClassId[classItem.id] ?? 0} students)
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {status === 'published' && !selectedClassId && (
@@ -298,7 +326,8 @@ export default function CreateAssignmentPage() {
                   )}
                   {selectedClassId && (
                     <p className="text-xs text-muted-foreground">
-                      {getEnrollmentsByClass(selectedClassId).length} student(s) will see this assignment when published
+                      {enrollmentCountByClassId[selectedClassId] ?? 0} student(s)
+                      will see this assignment when published
                     </p>
                   )}
                 </>

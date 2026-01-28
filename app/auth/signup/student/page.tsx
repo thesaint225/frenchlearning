@@ -63,14 +63,18 @@ export default function StudentSignUpPage() {
         // Profile might already exist from trigger, continue anyway
       }
 
-      // Check if email confirmation is required
+      // Redirect to app when we have a session (immediate or after getSession)
       if (authData.session) {
-        // User is automatically signed in, redirect to dashboard
         router.push('/student');
-      } else {
-        // Email confirmation required
-        router.push('/auth/signin?message=Please check your email to confirm your account');
+        return;
       }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push('/student');
+        return;
+      }
+      // Email confirmation required — no session yet
+      router.push('/auth/signin?message=Please check your email to confirm your account');
     } catch (err) {
       console.error('Sign up error:', err);
       const message =

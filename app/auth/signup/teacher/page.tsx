@@ -63,14 +63,18 @@ export default function TeacherSignUpPage() {
         // Profile might already exist from trigger, continue anyway
       }
 
-      // Check if email confirmation is required
+      // Redirect to app when we have a session (immediate or after getSession)
       if (authData.session) {
-        // User is automatically signed in, redirect to dashboard
         router.push('/teacher');
-      } else {
-        // Email confirmation required
-        router.push('/auth/signin?message=Please check your email to confirm your account');
+        return;
       }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push('/teacher');
+        return;
+      }
+      // Email confirmation required — no session yet
+      router.push('/auth/signin?message=Please check your email to confirm your account');
     } catch (err) {
       console.error('Sign up error:', err);
       setError('An unexpected error occurred. Please try again.');

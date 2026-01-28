@@ -73,7 +73,9 @@ export default function StudentSignUpPage() {
       }
     } catch (err) {
       console.error('Sign up error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      const message =
+        err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.';
+      setError(message);
       setIsLoading(false);
     }
   };

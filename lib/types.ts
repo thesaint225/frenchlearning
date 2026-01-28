@@ -1,6 +1,12 @@
 export type LessonType = 'video' | 'audio' | 'exercise';
 
-export type ExerciseType = 'multiple-choice' | 'fill-blank' | 'matching' | 'translation';
+export type ExerciseType =
+  | 'multiple-choice'
+  | 'fill-blank'
+  | 'matching'
+  | 'translation'
+  | 'short-answer'
+  | 'essay';
 
 export type QuestionType = 'multiple-choice' | 'fill-blank' | 'matching' | 'translation' | 'short-answer' | 'essay';
 
@@ -58,6 +64,7 @@ export interface Assignment {
   due_date: string;
   status: AssignmentStatus;
   max_points: number;
+  allow_late_submissions?: boolean;
   created_at: string;
   submission_count?: number;
   completion_rate?: number;

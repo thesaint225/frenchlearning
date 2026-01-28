@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { passwordResetConfirmSchema } from '@/lib/auth/schemas';
 import { supabase } from '@/lib/supabase/client';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 
-export default function ConfirmResetPasswordPage() {
+function ConfirmResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [newPassword, setNewPassword] = useState('');
@@ -57,7 +57,7 @@ export default function ConfirmResetPasswordPage() {
     });
 
     if (!validationResult.success) {
-      const firstError = validationResult.error.errors[0];
+      const firstError = validationResult.error.issues[0];
       setError(firstError?.message || 'Invalid password. Please check the requirements.');
       return;
     }
@@ -182,5 +182,19 @@ export default function ConfirmResetPasswordPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ConfirmResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <ConfirmResetPasswordContent />
+    </Suspense>
   );
 }

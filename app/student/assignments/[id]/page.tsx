@@ -128,7 +128,7 @@ export default function StudentAssignmentDetailPage() {
   }, [assignmentId, studentId]);
 
   const handleSaveDraft = async () => {
-    if (!assignment) return;
+    if (!assignment || !studentId) return;
 
     setIsSaving(true);
     setError(null);
@@ -158,7 +158,7 @@ export default function StudentAssignmentDetailPage() {
   };
 
   const handleSubmit = async () => {
-    if (!assignment) return;
+    if (!assignment || !studentId) return;
 
     // Validate that all questions are answered
     if (assignment.questions) {
@@ -696,7 +696,7 @@ function QuestionInput({ question, number, value, onChange, disabled, showCorrec
               <div className="space-y-1">
                 {question.options.map((option, idx) => (
                   <div key={idx} className="text-sm font-medium text-green-800">
-                    {option} → {question.correctAnswer[idx]}
+                    {option} → {question.correctAnswer?.[idx] ?? ''}
                   </div>
                 ))}
               </div>

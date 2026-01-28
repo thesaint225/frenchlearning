@@ -25,7 +25,7 @@ export default function ResetPasswordPage() {
     const validationResult = passwordResetRequestSchema.safeParse({ email });
 
     if (!validationResult.success) {
-      setError(validationResult.error.errors[0]?.message || 'Invalid email address');
+      setError(validationResult.error.issues[0]?.message || 'Invalid email address');
       return;
     }
 

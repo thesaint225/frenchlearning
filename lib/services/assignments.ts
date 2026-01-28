@@ -42,6 +42,7 @@ const transformAssignmentRow = (row: AssignmentRow): Assignment => {
     due_date: row.due_date,
     status: row.status,
     max_points: row.max_points,
+    allow_late_submissions: row.allow_late_submissions,
     created_at: row.created_at,
     submission_count: row.submission_count,
     completion_rate: row.completion_rate || undefined,

@@ -66,12 +66,13 @@ function gradeFillBlank(question: TestQuestion, answer: string): { correct: bool
  * Grade matching question
  */
 function gradeMatching(question: TestQuestion, answer: Record<string, string>): { correct: boolean; points: number } {
-  if (!question.options || !Array.isArray(question.correctAnswer)) {
+  const correctAnswer = question.correctAnswer;
+  if (!question.options || !Array.isArray(correctAnswer)) {
     return { correct: false, points: 0 };
   }
 
   const correctPairs = question.options.reduce((acc, option, index) => {
-    acc[option] = question.correctAnswer[index];
+    acc[option] = correctAnswer[index];
     return acc;
   }, {} as Record<string, string>);
 

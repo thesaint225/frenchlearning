@@ -342,7 +342,7 @@ export default function GradingPanelPage() {
                                   <div className="space-y-1">
                                     {question.options.map((option, idx) => (
                                       <div key={idx} className="text-sm font-medium text-green-800">
-                                        {option} → {question.correctAnswer[idx]}
+                                        {option} → {question.correctAnswer?.[idx] ?? ''}
                                       </div>
                                     ))}
                                   </div>

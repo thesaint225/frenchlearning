@@ -1,46 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+function redirectWithCookieClear(url: URL): NextResponse {
+  const res = NextResponse.redirect(url);
+  res.cookies.set('oauth_role_preference', '', { path: '/', maxAge: 0 });
+  return res;
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  const rolePreference = requestUrl.searchParams.get('role') as 'teacher' | 'student' | null;
+  const roleFromUrl = requestUrl.searchParams.get('role') as 'teacher' | 'student' | null;
+  const roleFromCookie = request.cookies.get('oauth_role_preference')?.value as 'teacher' | 'student' | undefined;
+  const rolePreference = roleFromUrl ?? (roleFromCookie === 'teacher' || roleFromCookie === 'student' ? roleFromCookie : null);
 
   if (code) {
     const supabase = await createServerSupabaseClient();
-    
-    // Exchange code for session
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       console.error('OAuth callback error:', error);
-      return NextResponse.redirect(
+      return redirectWithCookieClear(
         new URL(`/auth/signin?error=${encodeURIComponent(error.message)}`, requestUrl.origin)
       );
     }
 
-    // Get the authenticated user
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(
+      return redirectWithCookieClear(
         new URL('/auth/signin?error=Authentication failed', requestUrl.origin)
       );
     }
 
-    // Get user role from profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
-    // Check if this is a new user (OAuth signup)
     if (!profile) {
-      // Use role preference from URL, or default to student
       const userRole = rolePreference || 'student';
-      
-      // Create profile with role preference
+
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -52,26 +54,20 @@ export async function GET(request: NextRequest) {
 
       if (profileError) {
         console.error('Error creating profile:', profileError);
-        // Still redirect even if profile creation fails
       }
 
-      // Redirect based on role
       if (userRole === 'teacher') {
-        return NextResponse.redirect(new URL('/teacher', requestUrl.origin));
-      } else {
-        return NextResponse.redirect(new URL('/student', requestUrl.origin));
+        return redirectWithCookieClear(new URL('/teacher', requestUrl.origin));
       }
+      return redirectWithCookieClear(new URL('/student', requestUrl.origin));
     }
 
-    // Existing user - redirect based on their profile role
     const userRole = profile.role;
     if (userRole === 'teacher') {
-      return NextResponse.redirect(new URL('/teacher', requestUrl.origin));
-    } else {
-      return NextResponse.redirect(new URL('/student', requestUrl.origin));
+      return redirectWithCookieClear(new URL('/teacher', requestUrl.origin));
     }
+    return redirectWithCookieClear(new URL('/student', requestUrl.origin));
   }
 
-  // No code parameter, redirect to sign in
-  return NextResponse.redirect(new URL('/auth/signin', requestUrl.origin));
+  return redirectWithCookieClear(new URL('/auth/signin', requestUrl.origin));
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { SignInForm } from '@/components/auth/SignInForm';
 import { OAuthButton } from '@/components/auth/OAuthButton';
@@ -11,8 +11,17 @@ import { supabase } from '@/lib/supabase/client';
 
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const msg = searchParams.get('message');
+    const err = searchParams.get('error');
+    if (msg) setMessage(decodeURIComponent(msg));
+    if (err) setError(decodeURIComponent(err));
+  }, [searchParams]);
 
   const handleSignIn = async (email: string, password: string) => {
     setIsLoading(true);
@@ -73,6 +82,11 @@ export default function SignInPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {message && (
+            <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+              {message}
+            </div>
+          )}
           <SignInForm onSubmit={handleSignIn} isLoading={isLoading} error={error} />
 
           <div className="relative">

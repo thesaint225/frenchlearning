@@ -45,17 +45,16 @@ export function OAuthButton({
       onClick();
     }
 
-    // Store role preference in localStorage for OAuth callback (client-side fallback)
-    if (role) {
+    // Store role preference: cookie (for server callback) and URL (in case redirect preserves it)
+    if (role && typeof document !== 'undefined') {
+      document.cookie = `oauth_role_preference=${role}; path=/; max-age=600; samesite=lax`;
       localStorage.setItem('oauth_role_preference', role);
     }
 
     setIsLoading(true);
 
     try {
-      // Get the current origin for redirect URL
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      // Include role in redirect URL so callback can access it
       const redirectUrl = role
         ? `${origin}/auth/callback?role=${role}`
         : `${origin}/auth/callback`;

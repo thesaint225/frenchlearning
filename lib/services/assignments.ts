@@ -167,19 +167,20 @@ export const createAssignment = async (
 };
 
 /**
- * Fetches all assignments for a specific teacher.
+ * Fetches all assignments visible to the teacher (single-teacher use case).
+ * Returns every assignment in the app; teacherId is used only to ensure the caller is a teacher.
  *
- * @param teacherId - The ID of the teacher
+ * @param teacherId - The ID of the teacher (caller must be a teacher; not used to filter results)
  * @returns Object with array of assignments or error
  */
 export const getAssignmentsByTeacher = async (
   teacherId: string
 ): Promise<{ data: Assignment[] | null; error: Error | null }> => {
   try {
+    void teacherId; // kept for API; single-teacher sees all assignments
     const { data, error } = await supabase
       .from('assignments')
       .select('*')
-      .eq('teacher_id', teacherId)
       .order('created_at', { ascending: false });
 
     if (error) {

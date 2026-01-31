@@ -265,7 +265,15 @@ export default function EditAssignmentPage() {
       });
 
       if (updateError || !updated) {
-        setError(updateError?.message || 'Failed to update assignment');
+        const rawMessage =
+          updateError?.message || 'Failed to update assignment';
+        const isPermissionOrNotFound =
+          /update|row|permission|PGRST|not found/i.test(rawMessage);
+        setError(
+          isPermissionOrNotFound
+            ? "Update failed. If you see this often, check that you're signed in as the teacher."
+            : rawMessage
+        );
         setIsLoading(false);
         return;
       }
@@ -287,6 +295,32 @@ export default function EditAssignmentPage() {
     );
   }
 
+  // Show assignment-load error before teacher gate so user sees "not found" when fetch fails
+  if (error && !assignment) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="flex items-center gap-4">
+          <Link href="/teacher/assignments">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground mb-4">
+              {error ||
+                "Assignment not found or you don't have permission to edit it."}
+            </p>
+            <Link href="/teacher/assignments">
+              <Button>Back to Assignments</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (authError || !teacherId) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
@@ -302,28 +336,6 @@ export default function EditAssignmentPage() {
             <p className="text-muted-foreground">
               {authError || 'Please sign in as a teacher to view this page.'}
             </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error && !assignment) {
-    return (
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex items-center gap-4">
-          <Link href="/teacher/assignments">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Link href="/teacher/assignments">
-              <Button>Back to Assignments</Button>
-            </Link>
           </CardContent>
         </Card>
       </div>
@@ -423,12 +435,13 @@ export default function EditAssignmentPage() {
               ) : classes.length === 0 ? (
                 <div className="p-3 border border-dashed rounded-md bg-gray-50">
                   <p className="text-sm text-muted-foreground">
-                    No classes available.{' '}
+                    You need at least one class to publish. Create a class
+                    first, then come back and select it before publishing.{' '}
                     <Link
                       href="/teacher/classes"
                       className="text-primary underline"
                     >
-                      Create a class first
+                      Create a class
                     </Link>
                   </p>
                 </div>
@@ -597,6 +610,11 @@ export default function EditAssignmentPage() {
                 <option value="published">Published</option>
                 <option value="closed">Closed</option>
               </select>
+              {status === 'published' && !selectedClassId && (
+                <p className="text-xs text-amber-600">
+                  To publish, select a class below.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

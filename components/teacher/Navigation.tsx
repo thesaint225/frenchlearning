@@ -42,11 +42,21 @@ export function Navigation() {
         if (result.data !== null) {
           setPendingCount(result.data);
         } else if (result.error) {
-          console.error('Error getting pending count:', result.error);
+          const isNetworkFailure = /failed to fetch/i.test(
+            result.error.message,
+          );
+          if (!isNetworkFailure) {
+            console.error('Error getting pending count:', result.error);
+          }
           setPendingCount(0);
         }
       } catch (err) {
-        console.error('Error fetching pending count:', err);
+        const message =
+          err instanceof Error ? err.message : String(err);
+        const isNetworkFailure = /failed to fetch/i.test(message);
+        if (!isNetworkFailure) {
+          console.error('Error fetching pending count:', err);
+        }
         setPendingCount(0);
       }
     };

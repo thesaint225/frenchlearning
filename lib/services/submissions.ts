@@ -393,10 +393,16 @@ export const getSubmissionByStudentAndAssignment = async (
   }
 };
 
+/** Returns true if the error looks like a transient network failure. */
+function isNetworkFailure(error: Error): boolean {
+  return /failed to fetch/i.test(error.message);
+}
+
 /**
  * Gets the count of pending submissions for a specific teacher.
  * Pending submissions are those with status 'submitted' in the database
  * (which map to 'pending' in the app layer).
+ * Treats transient network failures as 0 count so the UI stays stable.
  *
  * @param teacherId - The ID of the teacher
  * @returns Object with count number or error
@@ -412,12 +418,19 @@ export const getPendingSubmissionsCount = async (
       .eq('teacher_id', teacherId);
 
     if (assignmentsError) {
-      return {
-        data: null,
-        error: new Error(
-          `Failed to fetch assignments: ${assignmentsError.message}`,
-        ),
-      };
+      const wrapped = new Error(
+        `Failed to fetch assignments: ${assignmentsError.message}`,
+      );
+      if (isNetworkFailure(wrapped)) {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn(
+            'Pending submissions count: Supabase unreachable (network), showing 0.',
+            assignmentsError.message,
+          );
+        }
+        return { data: 0, error: null };
+      }
+      return { data: null, error: wrapped };
     }
 
     if (!assignments || assignments.length === 0) {
@@ -434,21 +447,35 @@ export const getPendingSubmissionsCount = async (
       .eq('status', 'submitted');
 
     if (error) {
-      return {
-        data: null,
-        error: new Error(`Failed to count submissions: ${error.message}`),
-      };
+      const wrapped = new Error(`Failed to count submissions: ${error.message}`);
+      if (isNetworkFailure(wrapped)) {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn(
+            'Pending submissions count: Supabase unreachable (network), showing 0.',
+            error.message,
+          );
+        }
+        return { data: 0, error: null };
+      }
+      return { data: null, error: wrapped };
     }
 
     return { data: count || 0, error: null };
   } catch (error) {
-    return {
-      data: null,
-      error:
-        error instanceof Error
-          ? error
-          : new Error('Unknown error occurred while counting submissions'),
-    };
+    const err =
+      error instanceof Error
+        ? error
+        : new Error('Unknown error occurred while counting submissions');
+    if (isNetworkFailure(err)) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn(
+          'Pending submissions count: Supabase unreachable (network), showing 0.',
+          err.message,
+        );
+      }
+      return { data: 0, error: null };
+    }
+    return { data: null, error: err };
   }
 };
 

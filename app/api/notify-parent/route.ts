@@ -14,14 +14,14 @@ export async function POST(request: NextRequest) {
     if (!type || !id) {
       return NextResponse.json(
         { error: 'Missing type or id in body' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (type !== 'assignment' && type !== 'test') {
       return NextResponse.json(
         { error: 'type must be "assignment" or "test"' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -32,10 +32,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: profile } = await supabase
@@ -47,28 +44,33 @@ export async function POST(request: NextRequest) {
     if (!profile || profile.role !== 'teacher') {
       return NextResponse.json(
         { error: 'Only teachers can notify parents' },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (type === 'test') {
       return NextResponse.json(
-        { error: 'Test result notifications not yet supported (tests not persisted to DB)' },
-        { status: 501 }
+        {
+          error:
+            'Test result notifications not yet supported (tests not persisted to DB)',
+        },
+        { status: 501 },
       );
     }
 
     // type === 'assignment': id is submissionId
     const { data: submission, error: subError } = await supabase
       .from('submissions')
-      .select('id, student_id, assignment_id, score, max_score, feedback, status')
+      .select(
+        'id, student_id, assignment_id, score, max_score, feedback, status',
+      )
       .eq('id', id)
       .single();
 
     if (subError || !submission) {
       return NextResponse.json(
         { error: 'Submission not found' },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
     if (assignError || !assignment) {
       return NextResponse.json(
         { error: 'Assignment not found' },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -101,15 +103,17 @@ export async function POST(request: NextRequest) {
     if (guardiansError) {
       return NextResponse.json(
         { error: 'Failed to load guardian contacts' },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    const guardianEmails = (guardians ?? []).map((g) => g.email).filter(Boolean);
+    const guardianEmails = (guardians ?? [])
+      .map((g) => g.email)
+      .filter(Boolean);
     if (guardianEmails.length === 0) {
       return NextResponse.json(
         { error: 'No guardian email on file for this student' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -126,7 +130,7 @@ export async function POST(request: NextRequest) {
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json(
         { error: 'Email is not configured (RESEND_API_KEY missing)' },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -147,7 +151,7 @@ export async function POST(request: NextRequest) {
       console.error('Resend error:', sendError);
       return NextResponse.json(
         { error: 'Failed to send email' },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -156,7 +160,7 @@ export async function POST(request: NextRequest) {
     console.error('notify-parent error:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

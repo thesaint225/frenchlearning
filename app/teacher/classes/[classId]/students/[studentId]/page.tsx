@@ -2,10 +2,13 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, User, Mail, Calendar, TrendingUp, BookOpen, ClipboardList, FileText } from 'lucide-react';
+import { ArrowLeft, User, Mail, Calendar, TrendingUp, BookOpen, ClipboardList, FileText, Users } from 'lucide-react';
 import { getStudentById, getSubmissionsByAssignment, getTestAttemptsByTest, mockAssignments, mockTests } from '@/lib/mock-data';
+import { getGuardiansByStudentId } from '@/lib/services/guardians';
+import { StudentGuardian } from '@/lib/types';
 import { format } from 'date-fns';
 
 export default function StudentProfilePage() {
@@ -13,6 +16,13 @@ export default function StudentProfilePage() {
   const classId = params.classId as string;
   const studentId = params.studentId as string;
   const student = getStudentById(studentId);
+  const [guardians, setGuardians] = useState<StudentGuardian[]>([]);
+
+  useEffect(() => {
+    getGuardiansByStudentId(studentId).then(({ data }) => {
+      setGuardians(data ?? []);
+    });
+  }, [studentId]);
 
   if (!student) {
     return (
@@ -65,6 +75,36 @@ export default function StudentProfilePage() {
                 <p className="font-medium">{student.email}</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Parent / Guardian Contacts
+            </CardTitle>
+            <CardDescription>
+              Contact is set by the student in their account. Teachers can send assignment and test results to these addresses.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {guardians.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No guardian contacts on file. The student can add them in Settings.</p>
+            ) : (
+              <ul className="space-y-2">
+                {guardians.map((g) => (
+                  <li key={g.id} className="flex items-center gap-2 text-sm">
+                    <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="font-medium">{g.email}</p>
+                      {g.phone && <p className="text-muted-foreground">{g.phone}</p>}
+                      {g.relationship && <p className="text-xs text-muted-foreground">{g.relationship}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 

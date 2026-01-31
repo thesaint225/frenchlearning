@@ -54,6 +54,16 @@ export interface Student {
   };
 }
 
+export interface StudentGuardian {
+  id: string;
+  student_id: string;
+  email: string;
+  phone?: string;
+  relationship?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Assignment {
   id: string;
   title: string;

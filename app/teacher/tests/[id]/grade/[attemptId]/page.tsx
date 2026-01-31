@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { getTestById, getTestAttemptById } from '@/lib/mock-data';
-import { ArrowLeft, Save, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle2, XCircle, Mail, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -25,9 +25,18 @@ export default function GradeTestAttemptPage() {
   const test = getTestById(testId);
   const attempt = getTestAttemptById(attemptId);
 
-  const [score, setScore] = useState(attempt?.score?.toString() || '');
+  const [score, setScore] = useState(() => {
+    if (attempt?.status === 'graded' && attempt?.score != null) return attempt.score.toString();
+    if (!test || !attempt) return '';
+    const result = calculateTestScore(test.questions, attempt.answers);
+    return result.score.toString();
+  });
   const [feedback, setFeedback] = useState(attempt?.feedback || '');
   const [isGraded, setIsGraded] = useState(attempt?.status === 'graded');
+  const [showSendToParent, setShowSendToParent] = useState(false);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+  const [notifySuccess, setNotifySuccess] = useState(false);
   const [questionScores, setQuestionScores] = useState<Record<string, number>>(() => {
     // Initialize question scores from auto-grading
     if (!test || !attempt) return {};
@@ -85,7 +94,7 @@ export default function GradeTestAttemptPage() {
     // In a real app, this would save the grade
     console.log('Grade submitted:', { score, feedback, questionScores });
     setIsGraded(true);
-    router.push(`/teacher/tests/${testId}/monitor`);
+    setShowSendToParent(true);
   };
 
   return (
@@ -165,13 +174,59 @@ export default function GradeTestAttemptPage() {
                 <div className="p-4 bg-green-50 rounded-md border border-green-200">
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    <span className="font-semibold text-green-900">Attempt Graded</span>
+                    <span className="font-semibold text-green-900">Grade saved</span>
                   </div>
                   <div className="text-2xl font-bold text-green-700 mb-2">
                     {score} / {attempt.max_score}
                   </div>
                   {feedback && <p className="text-sm text-green-800">{feedback}</p>}
                 </div>
+                {showSendToParent && (
+                  <div className="space-y-3 pt-2 border-t">
+                    <p className="text-sm font-medium">Send result to parent?</p>
+                    {notifySuccess ? (
+                      <p className="text-sm text-green-700">Result sent to guardian email(s).</p>
+                    ) : notifyError ? (
+                      <p className="text-sm text-red-700">{notifyError}</p>
+                    ) : null}
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          setNotifyError(null);
+                          setNotifyLoading(true);
+                          try {
+                            const res = await fetch('/api/notify-parent', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ type: 'test', id: attemptId }),
+                              credentials: 'same-origin',
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok) {
+                              setNotifyError(data.error ?? 'Failed to send');
+                              return;
+                            }
+                            setNotifySuccess(true);
+                          } catch {
+                            setNotifyError('Failed to send');
+                          } finally {
+                            setNotifyLoading(false);
+                          }
+                        }}
+                        disabled={notifyLoading}
+                      >
+                        {notifyLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                        Send by email
+                      </Button>
+                      <Link href={`/teacher/tests/${testId}/monitor`}>
+                        <Button type="button" variant="outline">
+                          Back to monitor
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
                 <Button
                   onClick={() => setIsGraded(false)}
                   variant="outline"

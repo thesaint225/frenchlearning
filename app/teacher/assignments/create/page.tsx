@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,12 +16,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { AssignmentStatus, Lesson, TestQuestion } from '@/lib/types';
 import { QuestionBuilder } from '@/components/teacher/QuestionBuilder';
 import { ArrowLeft, Save, Search, Loader2 } from 'lucide-react';
+import { SimplePageSkeleton } from '@/components/skeletons/SimplePageSkeleton';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getLessonsByTeacher } from '@/lib/services/lessons';
 import { createAssignment } from '@/lib/services/assignments';
-import { getClassesByTeacher, getEnrollmentCountByClass } from '@/lib/services/classes';
-import { PLACEHOLDER_TEACHER_ID } from '@/lib/constants';
+import {
+  getClassesByTeacher,
+  getEnrollmentCountByClass,
+} from '@/lib/services/classes';
+import { useTeacherId } from '@/lib/hooks/useTeacherId';
 import { Class } from '@/lib/types';
 import {
   Select,
@@ -39,27 +49,34 @@ export default function CreateAssignmentPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
-  const [enrollmentCountByClassId, setEnrollmentCountByClassId] = useState<Record<string, number>>({});
+  const [enrollmentCountByClassId, setEnrollmentCountByClassId] = useState<
+    Record<string, number>
+  >({});
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingLessons, setIsLoadingLessons] = useState(true);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const teacherId = PLACEHOLDER_TEACHER_ID;
+  const { teacherId, loading: authLoading, error: authError } = useTeacherId();
 
   // Fetch lessons from database
   useEffect(() => {
+    if (!teacherId) {
+      setLessons([]);
+      setIsLoadingLessons(false);
+      return;
+    }
     const fetchLessons = async () => {
       setIsLoadingLessons(true);
       const { data, error: fetchError } = await getLessonsByTeacher(teacherId);
-      
+
       if (fetchError || !data) {
         setError(fetchError?.message || 'Failed to load lessons');
         setIsLoadingLessons(false);
         return;
       }
-      
+
       setLessons(data);
       setIsLoadingLessons(false);
     };
@@ -69,9 +86,17 @@ export default function CreateAssignmentPage() {
 
   // Fetch classes and enrollment counts for teacher
   useEffect(() => {
+    if (!teacherId) {
+      setClasses([]);
+      setEnrollmentCountByClassId({});
+      setIsLoadingClasses(false);
+      return;
+    }
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
-      const { data: classList, error: fetchError } = await getClassesByTeacher(teacherId);
+      const { data: classList, error: fetchError } = await getClassesByTeacher(
+        teacherId,
+      );
       if (fetchError) {
         setError(fetchError.message);
         setClasses([]);
@@ -86,7 +111,7 @@ export default function CreateAssignmentPage() {
           list.map(async (c) => {
             const { data: count } = await getEnrollmentCountByClass(c.id);
             counts[c.id] = count;
-          })
+          }),
         );
         setEnrollmentCountByClassId(counts);
       }
@@ -95,20 +120,24 @@ export default function CreateAssignmentPage() {
     fetchClasses();
   }, [teacherId]);
 
-  const filteredLessons = lessons.filter(lesson =>
-    lesson.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredLessons = lessons.filter((lesson) =>
+    lesson.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const toggleLesson = (lessonId: string) => {
-    setSelectedLessons(prev =>
+    setSelectedLessons((prev) =>
       prev.includes(lessonId)
-        ? prev.filter(id => id !== lessonId)
-        : [...prev, lessonId]
+        ? prev.filter((id) => id !== lessonId)
+        : [...prev, lessonId],
     );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!teacherId) {
+      setError('Please sign in as a teacher to create an assignment');
+      return;
+    }
     setError(null);
     setIsLoading(true);
 
@@ -122,7 +151,9 @@ export default function CreateAssignmentPage() {
 
       // Require at least one of questions or lesson_ids
       if (questions.length === 0 && selectedLessons.length === 0) {
-        setError('Please add at least one question or select at least one lesson');
+        setError(
+          'Please add at least one question or select at least one lesson',
+        );
         setIsLoading(false);
         return;
       }
@@ -141,7 +172,10 @@ export default function CreateAssignmentPage() {
             setIsLoading(false);
             return;
           }
-          if (q.type === 'multiple-choice' && (!q.options || q.options.length < 2)) {
+          if (
+            q.type === 'multiple-choice' &&
+            (!q.options || q.options.length < 2)
+          ) {
             setError(`Question ${i + 1} must have at least 2 options`);
             setIsLoading(false);
             return;
@@ -182,7 +216,9 @@ export default function CreateAssignmentPage() {
 
       // Calculate max_points from questions if provided, otherwise use input value
       const calculatedMaxPoints =
-        questions.length > 0 ? questions.reduce((sum, q) => sum + q.points, 0) : maxPoints;
+        questions.length > 0
+          ? questions.reduce((sum, q) => sum + q.points, 0)
+          : maxPoints;
 
       // Create assignment in database
       const { data: assignment, error: createError } = await createAssignment({
@@ -207,59 +243,94 @@ export default function CreateAssignmentPage() {
       alert('Assignment created successfully!');
       router.push('/teacher/assignments');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setError(
+        err instanceof Error ? err.message : 'An unexpected error occurred',
+      );
       setIsLoading(false);
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className='space-y-6 max-w-4xl mx-auto'>
+        <SimplePageSkeleton showBack />
+      </div>
+    );
+  }
+
+  if (authError || !teacherId) {
+    return (
+      <div className='space-y-6 max-w-4xl mx-auto'>
+        <div className='flex items-center gap-4'>
+          <Link href='/teacher/assignments'>
+            <Button variant='ghost' size='icon'>
+              <ArrowLeft className='h-4 w-4' />
+            </Button>
+          </Link>
+        </div>
+        <Card>
+          <CardContent className='py-12 text-center'>
+            <p className='text-muted-foreground'>
+              {authError || 'Please sign in as a teacher to view this page.'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Link href="/teacher/assignments">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
+    <div className='space-y-6 max-w-4xl mx-auto'>
+      <div className='flex items-center gap-4'>
+        <Link href='/teacher/assignments'>
+          <Button variant='ghost' size='icon'>
+            <ArrowLeft className='h-4 w-4' />
           </Button>
         </Link>
         <div>
-          <h2 className="text-3xl font-bold text-[#1f1f1f] mb-2">Create Assignment</h2>
-          <p className="text-muted-foreground">Create a new homework assignment for your students</p>
+          <h2 className='text-3xl font-bold text-[#1f1f1f] mb-2'>
+            Create Assignment
+          </h2>
+          <p className='text-muted-foreground'>
+            Create a new homework assignment for your students
+          </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className='space-y-6'>
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
             <CardDescription>Enter assignment details</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Assignment Title *</Label>
+          <CardContent className='space-y-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='title'>Assignment Title *</Label>
               <Input
-                id="title"
+                id='title'
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Week 1: Greetings and Basics"
+                placeholder='e.g., Week 1: Greetings and Basics'
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+            <div className='space-y-2'>
+              <Label htmlFor='description'>Description</Label>
               <Textarea
-                id="description"
+                id='description'
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of the assignment..."
+                placeholder='Brief description of the assignment...'
                 rows={3}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="instructions">Instructions</Label>
+            <div className='space-y-2'>
+              <Label htmlFor='instructions'>Instructions</Label>
               <Textarea
-                id="instructions"
+                id='instructions'
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                placeholder="Detailed instructions for students..."
+                placeholder='Detailed instructions for students...'
                 rows={4}
               />
             </div>
@@ -269,13 +340,20 @@ export default function CreateAssignmentPage() {
         <Card>
           <CardHeader>
             <CardTitle>Assignment Questions</CardTitle>
-            <CardDescription>Create questions for this assignment (fill-in-the-blank, multiple choice, matching, translation, etc.)</CardDescription>
+            <CardDescription>
+              Create questions for this assignment (fill-in-the-blank, multiple
+              choice, matching, translation, etc.)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <QuestionBuilder questions={questions} onQuestionsChange={setQuestions} />
+            <QuestionBuilder
+              questions={questions}
+              onQuestionsChange={setQuestions}
+            />
             {questions.length > 0 && (
-              <p className="text-sm text-muted-foreground mt-4">
-                Total Points: {questions.reduce((sum, q) => sum + q.points, 0)} points
+              <p className='text-sm text-muted-foreground mt-4'>
+                Total Points: {questions.reduce((sum, q) => sum + q.points, 0)}{' '}
+                points
               </p>
             )}
           </CardContent>
@@ -288,46 +366,55 @@ export default function CreateAssignmentPage() {
               Select the class for this assignment. Required when publishing.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="class">Class *</Label>
+          <CardContent className='space-y-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='class'>Class *</Label>
               {isLoadingClasses ? (
-                <div className="p-3 border border-dashed rounded-md bg-gray-50">
-                  <p className="text-sm text-muted-foreground">Loading classes…</p>
+                <div className='p-3 border border-dashed rounded-md bg-gray-50'>
+                  <p className='text-sm text-muted-foreground'>
+                    Loading classes…
+                  </p>
                 </div>
               ) : classes.length === 0 ? (
-                <div className="p-3 border border-dashed rounded-md bg-gray-50">
-                  <p className="text-sm text-muted-foreground">
+                <div className='p-3 border border-dashed rounded-md bg-gray-50'>
+                  <p className='text-sm text-muted-foreground'>
                     No classes available.{' '}
-                    <Link href="/teacher/classes" className="text-primary underline">
+                    <Link
+                      href='/teacher/classes'
+                      className='text-primary underline'
+                    >
                       Create a class first
                     </Link>
                   </p>
                 </div>
               ) : (
                 <>
-                  <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                    <SelectTrigger id="class">
-                      <SelectValue placeholder="Select a class" />
+                  <Select
+                    value={selectedClassId}
+                    onValueChange={setSelectedClassId}
+                  >
+                    <SelectTrigger id='class'>
+                      <SelectValue placeholder='Select a class' />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map((classItem) => (
                         <SelectItem key={classItem.id} value={classItem.id}>
                           {classItem.name} (
-                          {enrollmentCountByClassId[classItem.id] ?? 0} students)
+                          {enrollmentCountByClassId[classItem.id] ?? 0}{' '}
+                          students)
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {status === 'published' && !selectedClassId && (
-                    <p className="text-xs text-amber-600">
+                    <p className='text-xs text-amber-600'>
                       A class must be selected to publish the assignment
                     </p>
                   )}
                   {selectedClassId && (
-                    <p className="text-xs text-muted-foreground">
-                      {enrollmentCountByClassId[selectedClassId] ?? 0} student(s)
-                      will see this assignment when published
+                    <p className='text-xs text-muted-foreground'>
+                      {enrollmentCountByClassId[selectedClassId] ?? 0}{' '}
+                      student(s) will see this assignment when published
                     </p>
                   )}
                 </>
@@ -340,32 +427,40 @@ export default function CreateAssignmentPage() {
           <CardHeader>
             <CardTitle>Select Lessons (Optional)</CardTitle>
             <CardDescription>
-              Optionally choose lessons to include in this assignment. You can create questions above or select lessons, or both.
+              Optionally choose lessons to include in this assignment. You can
+              create questions above or select lessons, or both.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <CardContent className='space-y-4'>
+            <div className='relative'>
+              <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4' />
               <Input
-                placeholder="Search lessons..."
+                placeholder='Search lessons...'
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className='pl-10'
               />
             </div>
-            <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-2">
+            <div className='border rounded-lg p-4 max-h-64 overflow-y-auto space-y-2'>
               {isLoadingLessons ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  <span className="ml-2 text-sm text-muted-foreground">Loading lessons...</span>
+                <div className='flex items-center justify-center py-8'>
+                  <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
+                  <span className='ml-2 text-sm text-muted-foreground'>
+                    Loading lessons...
+                  </span>
                 </div>
               ) : filteredLessons.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {searchQuery ? 'No lessons found matching your search' : 'No lessons available. Create a lesson first.'}
+                <p className='text-sm text-muted-foreground text-center py-4'>
+                  {searchQuery
+                    ? 'No lessons found matching your search'
+                    : 'No lessons available. Create a lesson first.'}
                 </p>
               ) : (
-                filteredLessons.map(lesson => (
-                  <div key={lesson.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
+                filteredLessons.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className='flex items-center space-x-2 p-2 hover:bg-gray-50 rounded'
+                  >
                     <Checkbox
                       id={lesson.id}
                       checked={selectedLessons.includes(lesson.id)}
@@ -373,18 +468,21 @@ export default function CreateAssignmentPage() {
                     />
                     <Label
                       htmlFor={lesson.id}
-                      className="flex-1 cursor-pointer text-sm font-medium"
+                      className='flex-1 cursor-pointer text-sm font-medium'
                     >
                       {lesson.title}
                     </Label>
-                    <span className="text-xs text-muted-foreground capitalize">{lesson.type}</span>
+                    <span className='text-xs text-muted-foreground capitalize'>
+                      {lesson.type}
+                    </span>
                   </div>
                 ))
               )}
             </div>
             {selectedLessons.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {selectedLessons.length} lesson{selectedLessons.length !== 1 ? 's' : ''} selected
+              <p className='text-sm text-muted-foreground'>
+                {selectedLessons.length} lesson
+                {selectedLessons.length !== 1 ? 's' : ''} selected
               </p>
             )}
           </CardContent>
@@ -395,86 +493,99 @@ export default function CreateAssignmentPage() {
             <CardTitle>Settings</CardTitle>
             <CardDescription>Configure assignment settings</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date *</Label>
+          <CardContent className='space-y-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='dueDate'>Due Date *</Label>
               <Input
-                id="dueDate"
-                type="datetime-local"
+                id='dueDate'
+                type='datetime-local'
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxPoints">
-                Maximum Points {questions.length > 0 ? '(Auto-calculated from questions)' : '*'}
+            <div className='space-y-2'>
+              <Label htmlFor='maxPoints'>
+                Maximum Points{' '}
+                {questions.length > 0
+                  ? '(Auto-calculated from questions)'
+                  : '*'}
               </Label>
               <Input
-                id="maxPoints"
-                type="number"
-                value={questions.length > 0 ? questions.reduce((sum, q) => sum + q.points, 0) : maxPoints}
+                id='maxPoints'
+                type='number'
+                value={
+                  questions.length > 0
+                    ? questions.reduce((sum, q) => sum + q.points, 0)
+                    : maxPoints
+                }
                 onChange={(e) => setMaxPoints(Number(e.target.value))}
-                min="1"
+                min='1'
                 disabled={questions.length > 0}
                 required
               />
               {questions.length > 0 && (
-                <p className="text-xs text-muted-foreground">
+                <p className='text-xs text-muted-foreground'>
                   Points are automatically calculated from your questions
                 </p>
               )}
             </div>
-            <div className="flex items-center space-x-2">
+            <div className='flex items-center space-x-2'>
               <Checkbox
-                id="allowLate"
+                id='allowLate'
                 checked={allowLate}
                 onCheckedChange={(checked) => setAllowLate(checked as boolean)}
               />
-              <Label htmlFor="allowLate" className="cursor-pointer">
+              <Label htmlFor='allowLate' className='cursor-pointer'>
                 Allow late submissions
               </Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+            <div className='space-y-2'>
+              <Label htmlFor='status'>Status</Label>
               <select
-                id="status"
+                id='status'
                 value={status}
                 onChange={(e) => setStatus(e.target.value as AssignmentStatus)}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                className='w-full px-3 py-2 border border-input bg-background rounded-md'
               >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-                <option value="closed">Closed</option>
+                <option value='draft'>Draft</option>
+                <option value='published'>Published</option>
+                <option value='closed'>Closed</option>
               </select>
             </div>
           </CardContent>
         </Card>
 
         {error && (
-          <Card className="border-red-500 bg-red-50">
-            <CardContent className="pt-6">
-              <p className="text-sm text-red-700">{error}</p>
+          <Card className='border-red-500 bg-red-50'>
+            <CardContent className='pt-6'>
+              <p className='text-sm text-red-700'>{error}</p>
             </CardContent>
           </Card>
         )}
 
-        <div className="flex justify-end gap-4">
-          <Link href="/teacher/assignments">
-            <Button type="button" variant="outline" disabled={isLoading}>
+        <div className='flex justify-end gap-4'>
+          <Link href='/teacher/assignments'>
+            <Button type='button' variant='outline' disabled={isLoading}>
               Cancel
             </Button>
           </Link>
-          <Button type="submit" className="bg-primary hover:bg-primary-dark" disabled={isLoading}>
+          <Button
+            type='submit'
+            className='bg-primary hover:bg-primary-dark'
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                 Saving...
               </>
             ) : (
               <>
-                <Save className="mr-2 h-4 w-4" />
-                {status === 'published' ? 'Publish Assignment' : 'Save as Draft'}
+                <Save className='mr-2 h-4 w-4' />
+                {status === 'published'
+                  ? 'Publish Assignment'
+                  : 'Save as Draft'}
               </>
             )}
           </Button>

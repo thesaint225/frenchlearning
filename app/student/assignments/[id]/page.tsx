@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useOptimistic } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ import {
   updateSubmission,
   submitSubmission,
 } from '@/lib/services/submissions';
-import { supabase } from '@/lib/supabase/client';
+import { useStudentLayout } from '@/lib/contexts/StudentLayoutContext';
 import { Assignment, Lesson, TestQuestion, Submission } from '@/lib/types';
 import { autoGradeQuestion } from '@/lib/utils/grading-utils';
 import {
@@ -32,6 +33,7 @@ import {
   AlertCircle,
   XCircle,
 } from 'lucide-react';
+import { DetailSkeleton } from '@/components/skeletons/DetailSkeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -39,38 +41,21 @@ export default function StudentAssignmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const assignmentId = params.id as string;
+  const { studentId, studentLoading, refetchSubmissionsOnly } = useStudentLayout();
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [submission, setSubmission] = useState<Submission | null>(null);
+  const [optimisticSubmission, addOptimisticSubmission] = useOptimistic(
+    submission,
+    (current, optimistic: Submission | null) => optimistic ?? current
+  );
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [studentId, setStudentId] = useState<string | null>(null);
-
-  // Get the current authenticated user
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-          // If no user is authenticated, use a fallback test student ID
-          // In production, you should redirect to login instead
-          console.warn('No authenticated user found, using test student ID');
-          setStudentId('82e774b6-5003-47d2-9a5b-d066f04b45e5');
-        } else {
-          setStudentId(user.id);
-        }
-      } catch (err) {
-        console.error('Error getting current user:', err);
-        // Fallback to test student ID if authentication fails
-        setStudentId('82e774b6-5003-47d2-9a5b-d066f04b45e5');
-      }
-    };
-    getCurrentUser();
-  }, []);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     if (!assignmentId || !studentId) return;
@@ -174,44 +159,55 @@ export default function StudentAssignmentDetailPage() {
       return;
     }
 
-    setIsSubmitting(true);
     setError(null);
 
+    const optimisticSubmitted: Submission = {
+      id: submission?.id ?? '',
+      student_id: studentId,
+      assignment_id: assignmentId,
+      answers,
+      max_score: assignment.max_points,
+      status: 'pending',
+      submitted_at: new Date().toISOString(),
+    };
+
+    startTransition(() => {
+      addOptimisticSubmission(optimisticSubmitted);
+    });
+
     try {
-      // Save first if no submission exists
       let currentSubmission = submission;
       if (!currentSubmission) {
         const createResult = await createSubmission(studentId, assignmentId, answers, assignment.max_points);
         if (createResult.error || !createResult.data) {
+          addOptimisticSubmission(null);
           setError(createResult.error?.message || 'Failed to create submission');
-          setIsSubmitting(false);
           return;
         }
         currentSubmission = createResult.data;
       } else {
-        // Update answers before submitting
         const updateResult = await updateSubmission(currentSubmission.id, answers);
         if (updateResult.error) {
+          addOptimisticSubmission(null);
           setError(updateResult.error.message);
-          setIsSubmitting(false);
           return;
         }
         currentSubmission = updateResult.data;
       }
 
-      // Submit the assignment
       const submitResult = await submitSubmission(currentSubmission!.id);
       if (submitResult.error) {
+        addOptimisticSubmission(null);
         setError(submitResult.error.message);
-        setIsSubmitting(false);
         return;
       }
 
       setSubmission(submitResult.data);
+      refetchSubmissionsOnly();
       router.push('/student/assignments');
     } catch (err) {
+      addOptimisticSubmission(null);
       setError(err instanceof Error ? err.message : 'Failed to submit assignment');
-      setIsSubmitting(false);
     }
   };
 
@@ -219,13 +215,12 @@ export default function StudentAssignmentDetailPage() {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  if (studentLoading || !studentId) {
+    return <DetailSkeleton />;
+  }
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Loading assignment...</span>
-      </div>
-    );
+    return <DetailSkeleton />;
   }
 
   if (error && !assignment) {
@@ -246,8 +241,8 @@ export default function StudentAssignmentDetailPage() {
   const dueDate = new Date(assignment.due_date);
   const now = new Date();
   const isOverdue = now > dueDate;
-  const isSubmitted = submission?.submitted_at !== undefined;
-  const isGraded = submission?.status === 'graded';
+  const isSubmitted = optimisticSubmission?.submitted_at !== undefined;
+  const isGraded = optimisticSubmission?.status === 'graded';
   const isClosed = assignment.status === 'closed';
   const canSubmit = !isSubmitted && !isClosed && (isOverdue ? assignment.allow_late_submissions : true);
 
@@ -317,10 +312,10 @@ export default function StudentAssignmentDetailPage() {
                   <CheckCircle2 className="w-5 h-5 text-purple-600" />
                   <div>
                     <p className="font-medium text-purple-900">
-                      Graded: {submission?.score} / {submission?.max_score} points
+                      Graded: {optimisticSubmission?.score} / {optimisticSubmission?.max_score} points
                     </p>
-                    {submission?.feedback && (
-                      <p className="text-sm text-purple-700 mt-1">{submission.feedback}</p>
+                    {optimisticSubmission?.feedback && (
+                      <p className="text-sm text-purple-700 mt-1">{optimisticSubmission.feedback}</p>
                     )}
                   </div>
                 </>
@@ -330,7 +325,7 @@ export default function StudentAssignmentDetailPage() {
                   <div>
                     <p className="font-medium text-green-900">Submitted</p>
                     <p className="text-sm text-green-700">
-                      Submitted on {format(new Date(submission!.submitted_at), 'MMM d, yyyy HH:mm')} - Awaiting grade
+                      Submitted on {optimisticSubmission?.submitted_at && format(new Date(optimisticSubmission.submitted_at), 'MMM d, yyyy HH:mm')} - Awaiting grade
                     </p>
                   </div>
                 </>

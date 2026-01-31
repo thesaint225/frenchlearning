@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, BookOpen, ClipboardList, FileText, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ClipboardList, FileText, TrendingUp, Settings } from 'lucide-react';
 
 const navItems = [
   { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/student/lessons', label: 'Lessons', icon: BookOpen },
   { href: '/student/progress', label: 'Progress', icon: TrendingUp },
   { href: '/student/tests', label: 'Tests', icon: FileText },
+  { href: '/student/settings', label: 'Settings', icon: Settings },
 ];
 
 export function Navigation() {

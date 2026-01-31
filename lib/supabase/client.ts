@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Validates that required Supabase environment variables are present.
@@ -21,7 +22,7 @@ const validateEnvVars = () => {
 
 /**
  * Creates and returns a Supabase client for client-side use.
- * This client should be used in React components, hooks, and client-side code.
+ * Uses @supabase/ssr so the session is stored in cookies and shared with the server.
  *
  * @returns Supabase client instance
  * @throws Error if required environment variables are missing
@@ -29,12 +30,7 @@ const validateEnvVars = () => {
 export const createSupabaseClient = (): SupabaseClient => {
   const { supabaseUrl, supabaseAnonKey } = validateEnvVars();
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  });
+  return createBrowserClient(supabaseUrl, supabaseAnonKey);
 };
 
 let _client: SupabaseClient | null = null;

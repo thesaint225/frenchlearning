@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { getPendingSubmissionsCount } from '@/lib/services/submissions';
-import { supabase } from '@/lib/supabase/client';
+import { useTeacherId } from '@/lib/hooks/useTeacherId';
 
 const navItems = [
   { href: '/teacher', label: 'Dashboard', icon: LayoutDashboard },
@@ -26,33 +26,26 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname();
+  const { teacherId } = useTeacherId();
   const [pendingCount, setPendingCount] = useState<number>(0);
 
-  // Fetch pending submissions count
+  // Fetch pending submissions count only when logged in as teacher
   useEffect(() => {
+    if (!teacherId) {
+      setPendingCount(0);
+      return;
+    }
+
     const fetchPendingCount = async () => {
       try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
-
-        // Use authenticated user ID or fallback to test teacher ID (consistent with other teacher pages)
-        const teacherId = user?.id || '5be95487-e1e3-4857-a260-a21b3ef0960a';
-
-        if (error || !user) {
-          console.warn('No authenticated user found, using test user ID');
-        }
-
         const result = await getPendingSubmissionsCount(teacherId);
         if (result.data !== null) {
           setPendingCount(result.data);
-          console.log('Pending submissions count:', result.data);
         } else if (result.error) {
           console.error('Error getting pending count:', result.error);
+          setPendingCount(0);
         }
       } catch (err) {
-        // Fail silently - don't show badge on error
         console.error('Error fetching pending count:', err);
         setPendingCount(0);
       }
@@ -60,12 +53,10 @@ export function Navigation() {
 
     fetchPendingCount();
 
-    // Refresh count when pathname changes (user navigates)
-    // This ensures badge updates after grading submissions
-    const interval = setInterval(fetchPendingCount, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
 
     return () => clearInterval(interval);
-  }, [pathname]);
+  }, [pathname, teacherId]);
 
   return (
     <nav className='flex justify-center py-6 px-4'>

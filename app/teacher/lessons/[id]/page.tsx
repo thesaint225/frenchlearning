@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { getLessonById } from '@/lib/services/lessons';
 import { Lesson } from '@/lib/types';
 import { ExerciseDisplay } from '@/components/teacher/ExerciseDisplay';
-import { ArrowLeft, Edit, Video, Music, FileQuestion, Users, Calendar, Loader2 } from 'lucide-react';
+import { ArrowLeft, Edit, Video, Music, FileQuestion, Users, Calendar } from 'lucide-react';
+import { DetailSkeleton } from '@/components/skeletons/DetailSkeleton';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -136,12 +137,7 @@ export default function LessonDetailPage() {
   }, [lessonId]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Loading lesson...</span>
-      </div>
-    );
+    return <DetailSkeleton />;
   }
 
   if (error || !lesson) {

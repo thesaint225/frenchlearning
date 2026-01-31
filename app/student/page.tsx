@@ -1,88 +1,26 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 import { StatsCard } from '@/components/teacher/StatsCard';
-import { Assignment, Submission, Class } from '@/lib/types';
-import { ClipboardList, BookOpen, TrendingUp, Calendar, Loader2, UserPlus, Users } from 'lucide-react';
+import { Assignment, Submission } from '@/lib/types';
+import { ClipboardList, BookOpen, TrendingUp, Calendar, UserPlus, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { getAssignmentsByStudent } from '@/lib/services/assignments';
-import { getSubmissionsByStudent } from '@/lib/services/submissions';
-import { getClassesByStudent } from '@/lib/services/classes';
-import { supabase } from '@/lib/supabase/client';
+import { useStudentLayout } from '@/lib/contexts/StudentLayoutContext';
+import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 
 export default function StudentDashboard() {
-  const router = useRouter();
-  const [studentId, setStudentId] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-        if (authError || !user) {
-          router.replace('/auth/signin');
-          return;
-        }
-        setStudentId(user.id);
-      } catch {
-        router.replace('/auth/signin');
-      } finally {
-        setAuthChecked(true);
-      }
-    };
-    getCurrentUser();
-  }, [router]);
-
-  // Fetch assignments, submissions, and enrolled classes (only when authenticated)
-  useEffect(() => {
-    if (!studentId) return;
-
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      const [assignmentsResult, submissionsResult, classesResult] = await Promise.all([
-        getAssignmentsByStudent(studentId),
-        getSubmissionsByStudent(studentId),
-        getClassesByStudent(studentId),
-      ]);
-
-      if (assignmentsResult.error) {
-        setError(assignmentsResult.error.message);
-        setIsLoading(false);
-        return;
-      }
-
-      if (submissionsResult.error) {
-        // Submissions error is not critical, continue without them
-        console.warn('Failed to load submissions:', submissionsResult.error);
-      }
-
-      if (classesResult.error) {
-        // Classes error is non-blocking; leave list empty
-        console.warn('Failed to load classes:', classesResult.error);
-      }
-
-      setAssignments(assignmentsResult.data || []);
-      setSubmissions(submissionsResult.data || []);
-      setClasses(classesResult.data || []);
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [studentId]);
+  const {
+    studentId,
+    studentLoading,
+    assignments,
+    submissions,
+    classes,
+    shellLoading,
+    studentError,
+  } = useStudentLayout();
 
   // Create a map of assignment ID to submission
   const submissionMap = useMemo(() => {
@@ -182,23 +120,20 @@ export default function StudentDashboard() {
     }).slice(0, 5);
   }, [assignments, submissions]);
 
-  if (!authChecked || (studentId && isLoading)) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Loading dashboard...</span>
-      </div>
-    );
+  const isLoading = studentLoading || (studentId != null && shellLoading);
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
   }
 
-  if (authChecked && !studentId) {
+  if (!studentId) {
     return null;
   }
 
-  if (error) {
+  if (studentError) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600 mb-4">{error}</p>
+        <p className="text-red-600 mb-4">{studentError}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
           Retry
         </Button>

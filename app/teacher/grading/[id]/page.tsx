@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { getSubmissionById } from '@/lib/services/submissions';
 import { getAssignmentById } from '@/lib/services/assignments';
-import { gradeSubmission } from '@/lib/services/submissions';
 import { Submission, Assignment, TestQuestion } from '@/lib/types';
 import { calculateTestScore, autoGradeQuestion } from '@/lib/utils/grading-utils';
-import { ArrowLeft, Save, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle2, XCircle, Loader2, AlertCircle, Mail } from 'lucide-react';
 import Link from 'next/link';
+import { DetailSkeleton } from '@/components/skeletons/DetailSkeleton';
 import { useRouter, useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,10 @@ export default function GradingPanelPage() {
   const [feedback, setFeedback] = useState('');
   const [isGraded, setIsGraded] = useState(false);
   const [autoGradeMessage, setAutoGradeMessage] = useState<string | null>(null);
+  const [showSendToParent, setShowSendToParent] = useState(false);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+  const [notifySuccess, setNotifySuccess] = useState(false);
 
   // Fetch submission and assignment
   useEffect(() => {
@@ -57,6 +61,38 @@ export default function GradingPanelPage() {
         const assignmentResult = await getAssignmentById(fetchedSubmission.assignment_id);
         if (assignmentResult.data) {
           setAssignment(assignmentResult.data);
+          // Auto-fill score for ungraded submissions when we have questions and answers
+          if (
+            fetchedSubmission.status !== 'graded' &&
+            assignmentResult.data.questions?.length &&
+            Object.keys(fetchedSubmission.answers || {}).length > 0
+          ) {
+            try {
+              const { score: calculatedScore, maxScore, autoGraded } = calculateTestScore(
+                assignmentResult.data.questions,
+                fetchedSubmission.answers
+              );
+              setScore(calculatedScore.toString());
+              let autoGradableCount = 0;
+              let manualCount = 0;
+              assignmentResult.data.questions.forEach((q) => {
+                if (q.correctAnswer && ['multiple-choice', 'fill-blank', 'matching'].includes(q.type)) {
+                  autoGradableCount++;
+                } else {
+                  manualCount++;
+                }
+              });
+              if (autoGraded) {
+                setAutoGradeMessage(`Auto-graded all ${autoGradableCount} questions. Score: ${calculatedScore} / ${maxScore}`);
+              } else {
+                setAutoGradeMessage(
+                  `Auto-graded ${autoGradableCount} questions. ${manualCount} questions require manual grading. Score: ${calculatedScore} / ${maxScore}`
+                );
+              }
+            } catch {
+              setAutoGradeMessage('Error calculating score. Please grade manually.');
+            }
+          }
         }
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -73,33 +109,60 @@ export default function GradingPanelPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!submission) return;
 
+    const scoreNum = Number(score);
+    if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > submission.max_score) {
+      setError(`Score must be between 0 and ${submission.max_score}`);
+      return;
+    }
+
+    setError(null);
+    const previousSubmission = submission;
+
+    const optimisticGraded: Submission = {
+      ...submission,
+      score: scoreNum,
+      feedback: feedback.trim() || undefined,
+      status: 'graded',
+      graded_at: new Date().toISOString(),
+    };
+
+    setSubmission(optimisticGraded);
+    setIsGraded(true);
+    setShowSendToParent(true);
+    setIsSaving(false);
+
     try {
-      setIsSaving(true);
-      setError(null);
+      const res = await fetch('/api/grade-submission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          submissionId,
+          score: scoreNum,
+          feedback: feedback.trim() || undefined,
+        }),
+        credentials: 'same-origin',
+      });
 
-      const scoreNum = Number(score);
-      if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > submission.max_score) {
-        setError(`Score must be between 0 and ${submission.max_score}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setSubmission(previousSubmission);
+        setIsGraded(false);
+        setShowSendToParent(false);
+        setError((data.error as string) ?? 'Failed to save grade');
         setIsSaving(false);
         return;
       }
 
-      const result = await gradeSubmission(submissionId, scoreNum, feedback.trim() || undefined);
-
-      if (result.error || !result.data) {
-        setError(result.error?.message || 'Failed to save grade');
-        setIsSaving(false);
-        return;
-      }
-
-      setSubmission(result.data);
-      setIsGraded(true);
-      router.push('/teacher/grading');
+      setSubmission(data as Submission);
     } catch (err) {
       console.error('Error grading submission:', err);
+      setSubmission(previousSubmission);
+      setIsGraded(false);
+      setShowSendToParent(false);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setIsSaving(false);
     }
@@ -150,12 +213,7 @@ export default function GradingPanelPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Loading submission...</span>
-      </div>
-    );
+    return <DetailSkeleton />;
   }
 
   if (error && !submission) {
@@ -389,7 +447,7 @@ export default function GradingPanelPage() {
                 <div className="p-4 bg-green-50 rounded-md border border-green-200">
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    <span className="font-semibold text-green-900">Submission Graded</span>
+                    <span className="font-semibold text-green-900">Grade saved</span>
                   </div>
                   <div className="text-2xl font-bold text-green-700 mb-2">
                     {submission.score} / {submission.max_score}
@@ -398,6 +456,52 @@ export default function GradingPanelPage() {
                     <p className="text-sm text-green-800">{submission.feedback}</p>
                   )}
                 </div>
+                {showSendToParent && (
+                  <div className="space-y-3 pt-2 border-t">
+                    <p className="text-sm font-medium">Send result to parent?</p>
+                    {notifySuccess ? (
+                      <p className="text-sm text-green-700">Result sent to guardian email(s).</p>
+                    ) : notifyError ? (
+                      <p className="text-sm text-red-700">{notifyError}</p>
+                    ) : null}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          setNotifyError(null);
+                          setNotifyLoading(true);
+                          try {
+                            const res = await fetch('/api/notify-parent', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ type: 'assignment', id: submissionId }),
+                              credentials: 'same-origin',
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok) {
+                              setNotifyError(data.error ?? 'Failed to send');
+                              return;
+                            }
+                            setNotifySuccess(true);
+                          } catch {
+                            setNotifyError('Failed to send');
+                          } finally {
+                            setNotifyLoading(false);
+                          }
+                        }}
+                        disabled={notifyLoading}
+                      >
+                        {notifyLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                        Send by email
+                      </Button>
+                      <Link href="/teacher/grading">
+                        <Button type="button" variant="outline">
+                          Back to grading
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
                 <Button
                   onClick={() => setIsGraded(false)}
                   variant="outline"

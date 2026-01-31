@@ -1,45 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/supabase/client';
+import { useStudentId } from '@/lib/hooks/useStudentId';
+import { useStudentLayout } from '@/lib/contexts/StudentLayoutContext';
 import { enrollStudentByCode } from '@/lib/services/classes';
 import { Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { SimplePageSkeleton } from '@/components/skeletons/SimplePageSkeleton';
 
 export default function StudentJoinClassPage() {
-  const router = useRouter();
-  const [studentId, setStudentId] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const { studentId, loading: authLoading } = useStudentId();
+  const { refetchClassesOnly } = useStudentLayout();
   const [classCode, setClassCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ className: string } | null>(null);
-
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-        if (authError || !user) {
-          router.replace('/auth/signin');
-          return;
-        }
-        setStudentId(user.id);
-      } catch {
-        router.replace('/auth/signin');
-      } finally {
-        setAuthChecked(true);
-      }
-    };
-    getCurrentUser();
-  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,18 +30,14 @@ export default function StudentJoinClassPage() {
     if (result.success) {
       setSuccess({ className: result.className });
       setClassCode('');
+      refetchClassesOnly(); // fire-and-forget: update classes in background
     } else {
       setError(result.error);
     }
   };
 
-  if (!authChecked) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Loading...</span>
-      </div>
-    );
+  if (authLoading) {
+    return <SimplePageSkeleton showBack />;
   }
 
   if (!studentId) {

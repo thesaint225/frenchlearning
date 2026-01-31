@@ -1,81 +1,27 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo } from 'react';
 import { StudentAssignmentCard } from '@/components/student/AssignmentCard';
-import { Assignment, Submission } from '@/lib/types';
+import { Submission } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search } from 'lucide-react';
-import { getAssignmentsByStudent } from '@/lib/services/assignments';
-import { getSubmissionsByStudent } from '@/lib/services/submissions';
-import { supabase } from '@/lib/supabase/client';
+import { Search } from 'lucide-react';
+import { useStudentLayout } from '@/lib/contexts/StudentLayoutContext';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 
 type FilterStatus = 'all' | 'not_started' | 'in_progress' | 'submitted' | 'graded' | 'overdue';
 
 export default function StudentAssignmentsPage() {
-  const router = useRouter();
-  const [studentId, setStudentId] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    studentId,
+    studentLoading,
+    assignments,
+    submissions,
+    shellLoading,
+    studentError,
+  } = useStudentLayout();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-
-  useEffect(() => {
-    const getCurrentUser = async () => {
-      try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-        if (authError || !user) {
-          router.replace('/auth/signin');
-          return;
-        }
-        setStudentId(user.id);
-      } catch {
-        router.replace('/auth/signin');
-      } finally {
-        setAuthChecked(true);
-      }
-    };
-    getCurrentUser();
-  }, [router]);
-
-  // Fetch assignments and submissions (only when authenticated)
-  useEffect(() => {
-    if (!studentId) return;
-
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      const [assignmentsResult, submissionsResult] = await Promise.all([
-        getAssignmentsByStudent(studentId),
-        getSubmissionsByStudent(studentId),
-      ]);
-
-      if (assignmentsResult.error) {
-        setError(assignmentsResult.error.message);
-        setIsLoading(false);
-        return;
-      }
-
-      if (submissionsResult.error) {
-        // Submissions error is not critical, continue without them
-        console.warn('Failed to load submissions:', submissionsResult.error);
-      }
-
-      setAssignments(assignmentsResult.data || []);
-      setSubmissions(submissionsResult.data || []);
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [studentId]);
 
   // Create a map of assignment ID to submission
   const submissionMap = useMemo(() => {
@@ -128,17 +74,25 @@ export default function StudentAssignmentsPage() {
     return filtered;
   }, [assignments, searchQuery, filterStatus, submissionMap]);
 
-  if (!authChecked || (studentId && isLoading)) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Loading assignments...</span>
-      </div>
-    );
+  const isLoading = studentLoading || (studentId != null && shellLoading);
+
+  if (isLoading) {
+    return <ListSkeleton count={6} showTitle showFilters />;
   }
 
-  if (authChecked && !studentId) {
+  if (!studentId) {
     return null;
+  }
+
+  if (studentError) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600 mb-4">{studentError}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -204,41 +158,27 @@ export default function StudentAssignmentsPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-3 text-muted-foreground">Loading assignments...</span>
+      <>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredAssignments.map((assignment) => (
+            <StudentAssignmentCard
+              key={assignment.id}
+              assignment={assignment}
+              submission={submissionMap.get(assignment.id)}
+            />
+          ))}
         </div>
-      ) : error ? (
-        <div className="text-center py-12">
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Retry
-          </Button>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredAssignments.map((assignment) => (
-              <StudentAssignmentCard
-                key={assignment.id}
-                assignment={assignment}
-                submission={submissionMap.get(assignment.id)}
-              />
-            ))}
-          </div>
 
-          {filteredAssignments.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                {assignments.length === 0
-                  ? 'No assignments available. Check back later!'
-                  : 'No assignments found. Try adjusting your search or filters.'}
-              </p>
-            </div>
-          )}
-        </>
-      )}
+        {filteredAssignments.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              {assignments.length === 0
+                ? 'No assignments available. Check back later!'
+                : 'No assignments found. Try adjusting your search or filters.'}
+            </p>
+          </div>
+        )}
+      </>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { getLessonById } from '@/lib/services/lessons';
 import { Assignment, Lesson, Exercise, TestQuestion } from '@/lib/types';
 import { ExerciseDisplay } from '@/components/teacher/ExerciseDisplay';
 import { ArrowLeft, Edit, Calendar, Users, CheckCircle2, Clock, FileX, BookOpen, Loader2, FileQuestion, Eye, EyeOff } from 'lucide-react';
+import { DetailSkeleton } from '@/components/skeletons/DetailSkeleton';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -79,12 +80,7 @@ export default function AssignmentDetailPage() {
   }, [assignmentId]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="ml-3 text-muted-foreground">Loading assignment...</span>
-      </div>
-    );
+    return <DetailSkeleton />;
   }
 
   if (error || !assignment) {

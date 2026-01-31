@@ -4,3 +4,6 @@
  * Must match a teacher_id in Supabase (e.g. auth.users or seed data).
  */
 export const PLACEHOLDER_TEACHER_ID = '5be95487-e1e3-4857-a260-a21b3ef0960a';
+
+/** Display name for the platform used in emails (header/footer). */
+export const PLATFORM_DISPLAY_NAME = 'Learn French';

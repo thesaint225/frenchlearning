@@ -4,48 +4,54 @@ import { useState, useMemo, useEffect } from 'react';
 import { AssignmentCard } from '@/components/teacher/AssignmentCard';
 import { Assignment, AssignmentStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import Link from 'next/link';
-import { getAssignmentsByTeacher, deleteAssignment } from '@/lib/services/assignments';
-import { getClassesByTeacher } from '@/lib/services/classes';
-import { PLACEHOLDER_TEACHER_ID } from '@/lib/constants';
+import {
+  getAssignmentsByTeacher,
+  deleteAssignment,
+} from '@/lib/services/assignments';
+import { useTeacherLayout } from '@/lib/contexts/TeacherLayoutContext';
 
 export default function AssignmentsPage() {
+  const {
+    teacherId,
+    teacherLoading: authLoading,
+    teacherError: authError,
+    classes,
+  } = useTeacherLayout();
   const [filterStatus, setFilterStatus] = useState<AssignmentStatus | 'all'>(
     'all',
   );
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [classIdToName, setClassIdToName] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const teacherId = PLACEHOLDER_TEACHER_ID;
+  const classIdToName = useMemo(
+    () => Object.fromEntries(classes.map((c) => [c.id, c.name])),
+    [classes],
+  );
 
-  // Fetch assignments and classes
+  // Fetch assignments only (classes from layout context)
   useEffect(() => {
+    if (!teacherId) {
+      setAssignments([]);
+      setIsLoading(false);
+      return;
+    }
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
-
-      const [assignmentsResult, classesResult] = await Promise.all([
-        getAssignmentsByTeacher(teacherId),
-        getClassesByTeacher(teacherId),
-      ]);
-
+      const assignmentsResult = await getAssignmentsByTeacher(teacherId);
       if (assignmentsResult.error || !assignmentsResult.data) {
-        setError(assignmentsResult.error?.message || 'Failed to load assignments');
-        setIsLoading(false);
-        return;
+        setError(
+          assignmentsResult.error?.message || 'Failed to load assignments',
+        );
+      } else {
+        setAssignments(assignmentsResult.data);
       }
-
-      setAssignments(assignmentsResult.data);
-      const classList = classesResult.data ?? [];
-      setClassIdToName(
-        Object.fromEntries(classList.map((c) => [c.id, c.name]))
-      );
       setIsLoading(false);
     };
-
     fetchData();
   }, [teacherId]);
 
@@ -59,10 +65,10 @@ export default function AssignmentsPage() {
   const handleDeleteAssignment = async (assignmentId: string) => {
     const assignment = assignments.find((a) => a.id === assignmentId);
     const assignmentTitle = assignment?.title || 'this assignment';
-    
+
     if (
       !confirm(
-        `Are you sure you want to delete "${assignmentTitle}"? This action cannot be undone.`
+        `Are you sure you want to delete "${assignmentTitle}"? This action cannot be undone.`,
       )
     ) {
       return;
@@ -127,13 +133,14 @@ export default function AssignmentsPage() {
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className='flex items-center justify-center py-12'>
-          <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
-          <span className='ml-3 text-muted-foreground'>
-            Loading assignments...
-          </span>
+      {authError || !teacherId ? (
+        <div className='text-center py-12'>
+          <p className='text-muted-foreground'>
+            {authError || 'Please sign in as a teacher to view this page.'}
+          </p>
         </div>
+      ) : authLoading || isLoading ? (
+        <ListSkeleton count={6} showTitle showFilters />
       ) : error ? (
         <div className='text-center py-12'>
           <p className='text-red-600 mb-4'>{error}</p>
@@ -143,7 +150,10 @@ export default function AssignmentsPage() {
         </div>
       ) : (
         <>
-          <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3' style={{ gridAutoRows: '1fr' }}>
+          <div
+            className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'
+            style={{ gridAutoRows: '1fr' }}
+          >
             {filteredAssignments.map((assignment) => (
               <AssignmentCard
                 key={assignment.id}

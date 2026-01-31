@@ -5,7 +5,8 @@ import { LessonCard } from '@/components/teacher/LessonCard';
 import { Lesson, LessonType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Loader2 } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
+import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import Link from 'next/link';
 import { getLessonsByTeacher } from '@/lib/services/lessons';
 
@@ -131,10 +132,7 @@ export const LessonsPage = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-3 text-muted-foreground">Loading lessons...</span>
-        </div>
+        <ListSkeleton count={6} showTitle showFilters />
       ) : error ? (
         <div className="text-center py-12">
           <p className="text-red-600 mb-4">{error}</p>
